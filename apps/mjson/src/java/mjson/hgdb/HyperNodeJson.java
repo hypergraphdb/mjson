@@ -11,6 +11,7 @@ import mjson.Json;
 
 import org.hypergraphdb.HGException;
 import org.hypergraphdb.HGHandle;
+import org.hypergraphdb.HGQuery;
 import org.hypergraphdb.HGQuery.hg;
 import org.hypergraphdb.HGSearchResult;
 import org.hypergraphdb.HGValueLink;
@@ -31,11 +32,24 @@ public class HyperNodeJson implements HyperNode
     // Json instances into HGValueLinks. The HGDB cache itself only keeps the
     // HGValueLink instances.
     private TxCacheMap<Object, HGLiveHandle> atomsTx = null;
+
+    private HGQuery<HGHandle> findName;
+    private HGQuery<HGHandle> findProperty; 
+    private boolean usecompiled = true;
+
+    private void makeQueries()
+    {
+        findName = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(String.class), hg.eq(hg.var("name"))));
+        findProperty = HGQuery.make(HGHandle.class, graph).compile(
+        			hg.and(hg.type(JsonProperty.class), hg.incident(hg.var("name")), hg.incident(hg.var("value"))));
+
+    }
     
     public HyperNodeJson(HyperGraph graph)
     {
         this.graph = graph;
-        atomsTx = new TxCacheMap<Object, HGLiveHandle>(graph.getTransactionManager(), WeakIdentityHashMap.class, null);        
+        atomsTx = new TxCacheMap<Object, HGLiveHandle>(graph.getTransactionManager(), WeakIdentityHashMap.class, null);
+        makeQueries();
     }
     
     /**
@@ -89,7 +103,10 @@ public class HyperNodeJson implements HyperNode
     
     public HGHandle findProperty(String name, HGHandle value)
     {
-        HGHandle h = graph.findOne(hg.eq(name));
+        HGHandle h = (HGHandle) ( 
+        		usecompiled ? findName.var("name", name).findOne() :  
+        		hg.findOne(graph, hg.eq(name))); 
+        		
         return h == null ? null : findProperty(h, value); 
     }
     
@@ -101,14 +118,24 @@ public class HyperNodeJson implements HyperNode
     
     public HGHandle findProperty(HGHandle name, HGHandle value)
     {
-        return graph.findOne(hg.and(hg.type(JsonProperty.class), 
-                                    hg.link(name, value)));        
+        return (HGHandle) ( 
+        		usecompiled ? findProperty.var("name", name).var("value", value).findOne() :  
+        			hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
+                            hg.link(name, 
+                                    value)))); 
+        		//findProperty.thread().var("name", name).var("value", value).findOne();
+        //graph.findOne(hg.and(hg.type(JsonProperty.class), hg.link(name, value)));        
     }
     
     @SuppressWarnings("unchecked")
     public List<HGHandle> findPropertyValues(String name)
     {
-        HGHandle h = graph.findOne(hg.eq(name));
+        HGHandle h = (HGHandle) ( 
+        		usecompiled ? findName.var("name", name).findOne() :  
+        		hg.findOne(graph, hg.eq(name))); 
+        		
+        		//hg.findOne(graph, hg.eq(name));
+        		//findName.thread().var("name", name).findOne();// graph.findOne(hg.eq(name));
         return h == null ? Collections.EMPTY_LIST : findPropertyValues(h);         
     }
     
@@ -344,17 +371,29 @@ public class HyperNodeJson implements HyperNode
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
             {
-                HGHandle nameHandle = hg.findOne(graph, hg.eq(e.getKey()));
+                HGHandle nameHandle = (HGHandle) ( 
+                		usecompiled ? findName.var("name", e.getKey()).findOne() :  
+                    		hg.findOne(graph, hg.eq(e.getKey()))); 
+                		//hg.findOne(graph, hg.eq(e.getKey()));
+                		//findName.thread().var("name", e.getKey()).findOne();                
                 if (nameHandle == null)
+                {
+                	//System.out.println("name " + e.getKey() + " not found");
                     nameHandle = graph.add(e.getKey());
+                }
                 HGHandle valueHandle = match(e.getValue(), true);
                 if (valueHandle == null)
                     valueHandle = assertAtom(e.getValue());
-                HGHandle propHandle = hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
-                                                               hg.link(nameHandle, 
-                                                                       valueHandle)));
+                HGHandle propHandle =  (HGHandle) ( 
+                		usecompiled ? findProperty.var("name", nameHandle).var("value", valueHandle).findOne() :  
+                			hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
+                                    hg.link(nameHandle, 
+                                            valueHandle))));                		
                 if (propHandle == null)
+                {
+                	//System.out.println("prop " + graph.get(nameHandle) + "=" + graph.get(valueHandle) + " not found");
                     propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
+                }
                 A[i++] = propHandle;
             }
             return graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);            

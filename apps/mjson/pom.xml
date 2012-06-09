@@ -6,34 +6,35 @@
   <parent>
     <groupId>org.hypergraphdb</groupId>
     <artifactId>hgdbapps</artifactId>
-    <version>${version}</version>  
+    <version>1.2</version>  
   </parent>  
   <artifactId>hgdbmjson</artifactId>
   <name>HyperGraphDB MJSON Persistence</name>
-
- <repositories>
+  
+  <repositories>
     <repository>
       <id>hypergraphdb</id>
       <url>http://hypergraphdb.org/maven</url>
     </repository>
+    <!-- 
     <repository>
       <id>sharegov</id>
       <url>http://repo.sharegov.org/mvn</url>
-   </repository>    
- </repositories>
- 
-  <dependencies>
+    </repository>
+     -->    
+  </repositories>
+  
+  <dependencies>  
     <dependency>
-      <groupId>mjson</groupId>
-      <artifactId>mjson</artifactId>
-      <version>1.1</version>
-      <scope>compile</scope>
-    </dependency>  
-	<dependency>
-	  <groupId>org.hypergraphdb</groupId>
-	  <artifactId>hgdb</artifactId>
-	  <version>1.2</version>
-	</dependency>	
+      <groupId>org.hypergraphdb</groupId>
+      <artifactId>hgdb</artifactId>
+      <version>1.2</version>
+    </dependency>
+    <dependency>
+    	<groupId>org.sharegov</groupId>
+    	<artifactId>mjson</artifactId>
+    	<version>1.1</version>
+    </dependency>
   </dependencies>
   
 </project>

@@ -106,6 +106,11 @@ public final class JsonTypeSchema implements HGTypeSchema<Object>
             return wrapped.getTypeDescriptor(typeId);
     }
 
+    public HGAtomType fromRuntimeType(HGHandle typeHandle, HGAtomType typeInstance)
+    {
+    	return wrapped.fromRuntimeType(typeHandle, typeInstance);
+    }
+    
     public HGAtomType toRuntimeType(HGHandle typeHandle, HGAtomType typeInstance)
     {
         return wrapped.toRuntimeType(typeHandle, typeInstance);
