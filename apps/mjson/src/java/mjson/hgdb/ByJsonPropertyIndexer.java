@@ -9,6 +9,7 @@ import org.hypergraphdb.HyperGraph;
 import org.hypergraphdb.indexing.HGKeyIndexer;
 import org.hypergraphdb.storage.ByteArrayConverter;
 import org.hypergraphdb.type.HGAtomType;
+import org.hypergraphdb.type.HGPrimitiveType;
 
 public class ByJsonPropertyIndexer extends HGKeyIndexer
 {
@@ -35,7 +36,12 @@ public class ByJsonPropertyIndexer extends HGKeyIndexer
     public Comparator<?> getComparator(HyperGraph graph)
     {
         HGAtomType type = graph.get(propertyType);
-        return (Comparator<?>)type;
+        if (type instanceof Comparator)
+        	return (Comparator<?>)type;
+        else if (type instanceof HGPrimitiveType)
+        	return ((HGPrimitiveType)type).getComparator();
+        else
+        	return null;
     }
 
     public Object getKey(HyperGraph graph, Object atom)

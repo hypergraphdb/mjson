@@ -22,9 +22,18 @@ import org.hypergraphdb.handle.HGLiveHandle;
 import org.hypergraphdb.query.And;
 import org.hypergraphdb.query.HGQueryCondition;
 import org.hypergraphdb.transaction.TxCacheMap;
+import org.hypergraphdb.util.ArrayBasedSet;
 import org.hypergraphdb.util.HGUtils;
 import org.hypergraphdb.util.WeakIdentityHashMap;
 
+/**
+ * <p>
+ * Represents a view of the JSON storage within a {@link HyperGraph} instance.
+ * </p>
+ * 
+ * @author borislav
+ *
+ */
 public class HyperNodeJson implements HyperNode
 {
     private HyperGraph graph;
@@ -33,18 +42,41 @@ public class HyperNodeJson implements HyperNode
     // HGValueLink instances.
     private TxCacheMap<Object, HGLiveHandle> atomsTx = null;
 
+    private HGHandle nullHandle = null;
     private HGQuery<HGHandle> findName;
-    private HGQuery<HGHandle> findProperty; 
-    private boolean usecompiled = true;
+    private HGQuery<HGHandle> findProperty;
+    private HGQuery<HGHandle> findBoolean;
+    private HGQuery<HGHandle> findNumber;
+    private HGQuery<HGHandle> findString;
 
+    private HGHandle getNullHandle()
+    {
+    	if (nullHandle == null)
+    		nullHandle = graph.findOne(hg.type(JsonTypeSchema.nullTypeHandle));
+    	return nullHandle;
+    }
+    
     private void makeQueries()
     {
         findName = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(String.class), hg.eq(hg.var("name"))));
         findProperty = HGQuery.make(HGHandle.class, graph).compile(
         			hg.and(hg.type(JsonProperty.class), hg.incident(hg.var("name")), hg.incident(hg.var("value"))));
-
+        findBoolean = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(JsonTypeSchema.booleanTypeHandle), 
+        					hg.eq(hg.var("value"))));
+        findString = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(JsonTypeSchema.stringTypeHandle), 
+        					hg.eq(hg.var("value"))));
+        findNumber = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(JsonTypeSchema.numberTypeHandle), 
+        					hg.eq(hg.var("value"))));
     }
     
+    /**
+     * <p>Create a view of the JSON within the given <code>HyperGraphDB</code> instance. Note that
+     * it is strongly recommended to have only one such view instantiated per database instance because
+     * it maintains its own cache of <code>Json</code> atoms and multiple views may lead to inconsistencies
+     * as the caches won't be automatically synchronized.
+     * </p> 
+     * @param graph
+     */
     public HyperNodeJson(HyperGraph graph)
     {
         this.graph = graph;
@@ -103,10 +135,7 @@ public class HyperNodeJson implements HyperNode
     
     public HGHandle findProperty(String name, HGHandle value)
     {
-        HGHandle h = (HGHandle) ( 
-        		usecompiled ? findName.var("name", name).findOne() :  
-        		hg.findOne(graph, hg.eq(name))); 
-        		
+        HGHandle h = findName.var("name", name).findOne();
         return h == null ? null : findProperty(h, value); 
     }
     
@@ -118,24 +147,13 @@ public class HyperNodeJson implements HyperNode
     
     public HGHandle findProperty(HGHandle name, HGHandle value)
     {
-        return (HGHandle) ( 
-        		usecompiled ? findProperty.var("name", name).var("value", value).findOne() :  
-        			hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
-                            hg.link(name, 
-                                    value)))); 
-        		//findProperty.thread().var("name", name).var("value", value).findOne();
-        //graph.findOne(hg.and(hg.type(JsonProperty.class), hg.link(name, value)));        
+        return findProperty.var("name", name).var("value", value).findOne();        
     }
     
     @SuppressWarnings("unchecked")
     public List<HGHandle> findPropertyValues(String name)
     {
-        HGHandle h = (HGHandle) ( 
-        		usecompiled ? findName.var("name", name).findOne() :  
-        		hg.findOne(graph, hg.eq(name))); 
-        		
-        		//hg.findOne(graph, hg.eq(name));
-        		//findName.thread().var("name", name).findOne();// graph.findOne(hg.eq(name));
+        HGHandle h = findName.var("name", name).findOne();
         return h == null ? Collections.EMPTY_LIST : findPropertyValues(h);         
     }
     
@@ -152,6 +170,18 @@ public class HyperNodeJson implements HyperNode
         return h == null ? null : (Json)get(h);
     }
     
+    /**
+     * <p>
+     * Find the first <code>Json</code> element that matches the passed in <code>Json</code>
+     * pattern.
+     * </p>
+     * 
+     * @param j The <code>Json</code> pattern to match.
+     * @param exact Whether this should be an exact or approximate match. Approximate means only
+     * some of the properties must be there. This parameter applies recursively
+     * to nested structures. Note that arrays are always matched exactly.
+     * @return
+     */
     public HGHandle match(Json j, boolean exact)
     {
         HGHandle h = getHandle(j);
@@ -159,19 +189,19 @@ public class HyperNodeJson implements HyperNode
             return h;
         if (j.isNull())
         {
-            h = graph.findOne(hg.type(JsonTypeSchema.nullTypeHandle));
+            h = getNullHandle();
         }
         else if (j.isBoolean())
         {
-            h = graph.findOne(hg.and(hg.type(JsonTypeSchema.booleanTypeHandle), hg.eq(j)));
+            h = findBoolean.var("value", j).findOne();
         }
         else if (j.isString())
         {
-            h = graph.findOne(hg.and(hg.type(JsonTypeSchema.stringTypeHandle), hg.eq(j.asString())));
+            h = findString.var("value", j.asString()).findOne();
         }
         else if (j.isNumber())
         {
-            h = graph.findOne(hg.and(hg.type(JsonTypeSchema.numberTypeHandle), hg.eq(j.asDouble())));
+            h = findNumber.var("value", j.asDouble()).findOne();            		
         }
         else if (j.isArray())
         {
@@ -224,19 +254,19 @@ public class HyperNodeJson implements HyperNode
     {
         if (pattern.isNull())
         {
-            return graph.find(hg.type(JsonTypeSchema.nullTypeHandle));
+            return new ArrayBasedSet<HGHandle>(new HGHandle[] { getNullHandle()}).getSearchResult();
         }
         else if (pattern.isBoolean())
         {
-            return graph.find(hg.and(hg.type(JsonTypeSchema.booleanTypeHandle), hg.eq(pattern)));
+            return findBoolean.var("value", pattern).execute();
         }
         else if (pattern.isString())
         {
-            return graph.find(hg.and(hg.type(JsonTypeSchema.stringTypeHandle), hg.eq(pattern.asString())));
+            return findString.var("value", pattern.asString()).execute();
         }
         else if (pattern.isNumber())
         {
-            return graph.find(hg.and(hg.type(JsonTypeSchema.numberTypeHandle), hg.eq(pattern.asDouble())));
+            return findNumber.var("value", pattern.asDouble()).execute();
         }
         else if (pattern.isArray())
         {
@@ -371,11 +401,7 @@ public class HyperNodeJson implements HyperNode
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
             {
-                HGHandle nameHandle = (HGHandle) ( 
-                		usecompiled ? findName.var("name", e.getKey()).findOne() :  
-                    		hg.findOne(graph, hg.eq(e.getKey()))); 
-                		//hg.findOne(graph, hg.eq(e.getKey()));
-                		//findName.thread().var("name", e.getKey()).findOne();                
+                HGHandle nameHandle = findName.var("name", e.getKey()).findOne();                
                 if (nameHandle == null)
                 {
                 	//System.out.println("name " + e.getKey() + " not found");
@@ -384,11 +410,7 @@ public class HyperNodeJson implements HyperNode
                 HGHandle valueHandle = match(e.getValue(), true);
                 if (valueHandle == null)
                     valueHandle = assertAtom(e.getValue());
-                HGHandle propHandle =  (HGHandle) ( 
-                		usecompiled ? findProperty.var("name", nameHandle).var("value", valueHandle).findOne() :  
-                			hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
-                                    hg.link(nameHandle, 
-                                            valueHandle))));                		
+                HGHandle propHandle =  findProperty.var("name", nameHandle).var("value", valueHandle).findOne();                		
                 if (propHandle == null)
                 {
                 	//System.out.println("prop " + graph.get(nameHandle) + "=" + graph.get(valueHandle) + " not found");
@@ -424,25 +446,25 @@ public class HyperNodeJson implements HyperNode
             return h;
         else if (j.isNull())
         {
-            h = hg.findOne(graph, hg.type(JsonTypeSchema.nullTypeHandle));
+            h = getNullHandle();
             if (h == null)
                 h = graph.add(j, JsonTypeSchema.nullTypeHandle);            
         }
         else if (j.isBoolean())
         {
-            h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.booleanTypeHandle), hg.eq(j)));
+            h = findBoolean.var("value", j).findOne();
             if (h == null)
                 h = graph.add(j, JsonTypeSchema.booleanTypeHandle);            
         }
         else if (j.isString())
         {
-            h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.stringTypeHandle), hg.eq(j.asString())));
+            h = findString.var("value", j.asString()).findOne();
             if (h == null)
                 h = graph.add(j, JsonTypeSchema.stringTypeHandle);            
         }
         else if (j.isNumber())
         {
-            h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.numberTypeHandle), hg.eq(j.asDouble())));
+            h = findNumber.var("value", j.asDouble()).findOne();
             if (h == null)
                 h = graph.add(j, JsonTypeSchema.numberTypeHandle);            
         }
