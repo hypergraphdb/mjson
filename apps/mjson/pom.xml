@@ -16,12 +16,6 @@
       <id>hypergraphdb</id>
       <url>http://hypergraphdb.org/maven</url>
     </repository>
-    <!-- 
-    <repository>
-      <id>sharegov</id>
-      <url>http://repo.sharegov.org/mvn</url>
-    </repository>
-     -->    
   </repositories>
   
   <dependencies>  
@@ -33,7 +27,7 @@
     <dependency>
     	<groupId>org.sharegov</groupId>
     	<artifactId>mjson</artifactId>
-    	<version>1.1</version>
+    	<version>1.2</version>
     </dependency>
   </dependencies>
   
