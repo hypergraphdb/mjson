@@ -323,10 +323,9 @@ public class HyperNodeJson implements HyperNode
             while (rs.hasNext())
                 L.add(rs.next());
         }
-        catch (Throwable ex)
+        finally 
         {
             HGUtils.closeNoException(rs);
-            HGUtils.throwRuntimeException(ex);
         }
         return L;
     }
@@ -340,10 +339,9 @@ public class HyperNodeJson implements HyperNode
             while (rs.hasNext())
                 L.add((Json)get(rs.next()));
         }
-        catch (Throwable ex)
+        finally
         {
             HGUtils.closeNoException(rs);
-            HGUtils.throwRuntimeException(ex);
         }
         return L;        
     }
