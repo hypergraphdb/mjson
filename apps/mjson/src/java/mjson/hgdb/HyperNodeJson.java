@@ -36,7 +36,8 @@ import org.hypergraphdb.util.WeakIdentityHashMap;
  */
 public class HyperNodeJson implements HyperNode
 {
-    private HyperGraph graph;
+    HyperGraph graph;
+    
     // A separate atom cache is needed here because of the "auto-boxing" of
     // Json instances into HGValueLinks. The HGDB cache itself only keeps the
     // HGValueLink instances.
@@ -83,7 +84,7 @@ public class HyperNodeJson implements HyperNode
         atomsTx = new TxCacheMap<Object, HGLiveHandle>(graph.getTransactionManager(), WeakIdentityHashMap.class, null);
         makeQueries();
     }
-    
+        
     /**
      * <p>
      * Find the handle of a Json value stored in the database, that exactly matches
@@ -233,6 +234,7 @@ public class HyperNodeJson implements HyperNode
                 }
                 A[i++] = propHandle;
             }
+            
             if (A != null)
             {
                 And and = hg.and(hg.type(JsonTypeSchema.objectTypeHandle), hg.link(A));
@@ -244,11 +246,33 @@ public class HyperNodeJson implements HyperNode
         return h;
     }
 
+    /**
+     * <p>Return <code>find(pattern, false</code>.</p>
+     */
     public HGSearchResult<HGHandle> find(Json pattern)
     {
         return find(pattern, false);
     }
     
+    /**
+     * <p>
+     * Find all atoms that match the specified JSON pattern. A pattern is any JSON
+     * structure, from a primitive type to a deeply nested object. This method will
+     * attempt to find all atoms that have the same form. Here is what having the same
+     * form means:
+     * </p>
+     * <ul>
+     * <li>A JSON primitive (boolean, number, string or null) must be the same type and have the same value.</li>
+     * <li>A JSON array must be of the same length as <code>pattern</code> and each of its
+     * elements must match at the corresponding positions. So arrays are always strictly matched</li>
+     * <li>A JSON object must have all that properties that <code>pattern</code> and each of their
+     * values must match. If the <code>exact</code> parameter is <code>true</code>, then the 
+     * matching atom may not have any extra properties, but it must match <code>pattern</code> exactly.</li>
+     * </ul>
+     * @param pattern
+     * @param exact
+     * @return
+     */
     @SuppressWarnings("unchecked")
     public HGSearchResult<HGHandle> find(Json pattern, boolean exact)
     {
@@ -288,32 +312,20 @@ public class HyperNodeJson implements HyperNode
         }
         else if (pattern.isObject())
         {
-            HGHandle [] A = new HGHandle[pattern.asJsonMap().size()];
-            int i = 0;
-            for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
-            {
-                HGHandle propHandle = findProperty(e.getKey(), e.getValue());                
-                if (propHandle == null)
-                {
-                    A = null;
-                    break;
-                }
-                A[i++] = propHandle;
-            }
-            if (A != null)
-            {
-                And and = hg.and(hg.type(JsonTypeSchema.objectTypeHandle), hg.link(A));
-                if (exact) 
-                    and.add(hg.arity(i));                
-                return graph.find(and);
-            }
-            else
-                return (HGSearchResult<HGHandle>) HGSearchResult.EMPTY;
+            return HGJsonQuery.findObjectPattern(this, pattern, exact);
         }        
         else
             throw new IllegalArgumentException("Unknown JSON type: " + pattern);
     }
   
+    /**
+     * <p>
+     * Collect all results from {@link #find(Json)} into a Java <code>List</code> and
+     * close the result set properly.
+     * </p>
+     * 
+     * @param pattern The Json pattern to use. See {@link #find(Json)}.
+     */
     public List<HGHandle> findAll(Json pattern)
     {
         ArrayList<HGHandle> L = new ArrayList<HGHandle>();
