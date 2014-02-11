@@ -61,7 +61,7 @@ public class HyperNodeJson implements HyperNode
     {
         findName = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(String.class), hg.eq(hg.var("name"))));
         findProperty = HGQuery.make(HGHandle.class, graph).compile(
-        			hg.and(hg.type(JsonProperty.class), hg.incident(hg.var("name")), hg.incident(hg.var("value"))));
+        			hg.and(hg.type(graph.getTypeSystem().getTypeHandle(JsonProperty.class)), hg.incident(hg.var("name")), hg.incident(hg.var("value"))));
         findBoolean = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(JsonTypeSchema.booleanTypeHandle), 
         					hg.eq(hg.var("value"))));
         findString = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(JsonTypeSchema.stringTypeHandle), 
@@ -389,7 +389,7 @@ public class HyperNodeJson implements HyperNode
 
     /**
      * <p>
-     * Add a new atom. If the atom is a Json compound (array or object), first assert all
+     * Add a new atom. If the atom is a <code>Json</code> compound (array or object), first assert all
      * its elements/properties. That is, while the {@link #add(Object)} method will add a new atom for
      * the top-level structure as well as for all nested structures and while the {@link HyperNodeJson#assertAtom(Object)}
      * method will always first lookup if there's a matching atom with the same value, this method
@@ -407,6 +407,8 @@ public class HyperNodeJson implements HyperNode
         Json j = (Json)atom;
         if (j.isObject())
         {
+            HGHandle thisHandle = j.has("hghandle") ? 
+                    graph.getHandleFactory().makeHandle(j.atDel("hghandle").asString()) : null;            
             HGHandle [] A = new HGHandle[j.asJsonMap().size()];
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
@@ -428,7 +430,13 @@ public class HyperNodeJson implements HyperNode
                 }
                 A[i++] = propHandle;
             }
-            return graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);            
+            if (thisHandle != null)
+            {
+                graph.define(thisHandle, JsonTypeSchema.objectTypeHandle, new HGValueLink(j, A), 0);
+                return thisHandle;
+            }
+            else
+                return graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
         }
         else if (j.isArray())
         {
@@ -445,11 +453,26 @@ public class HyperNodeJson implements HyperNode
         else
             return add(j);
     }
-    
+
+    /**
+     * <p>
+     * Asserting an atom takes the perspective that the graph is a knowledge base and adds new piece of data
+     * only if it's not already in the database.   
+     * </p>
+     * 
+     * <p>
+     * For <code>Json</code> atoms, lookup is performed by trying to find the exact value of the 
+     * <code>Json</code> entity. For all other types of atoms, the <code>hg.assertAtom</code> from
+     * the core <code>HyperGraphDB</code> API is used. 
+     * </p>
+     * 
+     * @param atom
+     * @return
+     */
     public HGHandle assertAtom(Object atom)
     {
         if (! (atom instanceof Json))
-            return graph.add(atom);
+            return hg.assertAtom(graph, atom);
         Json j = (Json)atom;
         HGHandle h = getHandle(j);
         if (h != null)
@@ -494,6 +517,8 @@ public class HyperNodeJson implements HyperNode
         }
         else if (j.isObject())
         {
+            HGHandle thisHandle = j.has("hghandle") ? 
+                    graph.getHandleFactory().makeHandle(j.atDel("hghandle").asString()) : null;
             HGHandle [] A = new HGHandle[j.asJsonMap().size()];
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
@@ -511,11 +536,19 @@ public class HyperNodeJson implements HyperNode
                     propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
                 A[i++] = propHandle;
             }
-            h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.objectTypeHandle), 
-                                         hg.link(A), 
-                                         hg.arity(i)));
-            if (h == null)
-                h = graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
+            if (thisHandle != null)
+            {
+                graph.define(thisHandle, JsonTypeSchema.objectTypeHandle, new HGValueLink(j, A), 0);
+                h = thisHandle;
+            }
+            else
+            {
+                h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.objectTypeHandle), 
+                                             hg.link(A), 
+                                             hg.arity(i)));
+                if (h == null)
+                    h = graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
+            }
         }
         return h;
     }
@@ -559,7 +592,9 @@ public class HyperNodeJson implements HyperNode
         }
         else if (j.isObject())
         {
-            HGHandle [] A = new HGHandle[j.asJsonMap().size()];
+            HGHandle thisHandle = j.has("hghandle") ? 
+                    graph.getHandleFactory().makeHandle(j.atDel("hghandle").asString()) : null;
+            HGHandle [] A = new HGHandle[j.asJsonMap().size()];                    
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
             {
@@ -576,7 +611,13 @@ public class HyperNodeJson implements HyperNode
                     propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
                 A[i++] = propHandle;
             }
-            return graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
+            if (thisHandle != null)
+            {
+                graph.define(thisHandle, JsonTypeSchema.objectTypeHandle, new HGValueLink(j, A), 0);
+                return thisHandle;
+            }
+            else
+                return graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
         }
         throw new IllegalArgumentException();
     }

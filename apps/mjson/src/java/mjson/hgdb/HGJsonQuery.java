@@ -1,9 +1,12 @@
 package mjson.hgdb;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
 import org.hypergraphdb.HGHandle;
@@ -25,42 +28,143 @@ import mjson.Json;
  */
 class HGJsonQuery
 {
-    static abstract class Filter implements Mapping<Json, Boolean>
+    static ThreadLocal<String> systemPrefix = new ThreadLocal<String>() {
+        public String initialValue() { return "$"; }
+    };
+    
+    static String sysPrefix()
     {
-        String propertyWithOp;
-        String property;
-        Filter(String fullProperty, String property) 
-        { 
-            this.propertyWithOp = fullProperty;
-            this.property = property;
-        }
+        return systemPrefix.get();
     }
     
-    static class RegExFilter extends Filter 
+    static String asSys(String propName) { return sysPrefix() + propName; }
+    
+    static double keywordScore(String text, String[] keywords)
     {
-        Pattern regex;
-        public RegExFilter(String fullProperty, String property, String regex) 
+        StringTokenizer tokenizer = new StringTokenizer(text, " \t,.;?!~`@#$%^&*()-_+=\"[]{}:'<>/\\\n\r", false);
+        int cnt = 0;
+        int total = 0;
+        while (tokenizer.hasMoreTokens())
         {
-            super(fullProperty, property);
+            for (int i = 0; i < keywords.length; i++)
+                if (keywords[i].equalsIgnoreCase(tokenizer.nextToken()))
+                    cnt++;
+            total++;
+        }
+        return (double)cnt/(double)total;
+    }
+    
+    static abstract class ItemMap implements Mapping<Json, Json> {}
+    
+    static class RegExFilter extends ItemMap 
+    {
+        String property;
+        Pattern regex;
+        
+        public RegExFilter(String property, String regex) 
+        {
+            this.property = property;
             this.regex = Pattern.compile(regex); 
         }
             
-        public Boolean eval(Json value)
+        public Json eval(Json entity)
         {
+            Json value = entity.at(property);
             if (!value.isString())
-                return false;
+                return Json.nil();
+            else if (regex.matcher(value.asString()).matches())
+                return entity;
             else
-                return regex.matcher(value.asString()).matches(); 
-                    
+                return Json.nil();                    
         }
     }
     
-    static Collection<Filter> collectFilters(Json pattern)
+    static class KeywordMatch extends ItemMap
     {
-        Set<Filter> S = new HashSet<Filter>();
+        String property;
+        String [] keywords;
+        boolean assignScore;
+        
+        public KeywordMatch(String property, String []keywords, boolean assignScore) 
+        {
+            this.property = property;
+            this.keywords = keywords; 
+            this.assignScore = assignScore;
+        }
+            
+        public Json eval(Json entity)
+        {
+            Json value = entity.at(property);
+            if (!value.isString())
+                return Json.nil();
+            double score = keywordScore(value.asString(), this.keywords);
+            if (score == 0)
+                return Json.nil();
+            if (assignScore)
+            {
+                Json existing = entity.at(asSys("score"));
+                if (existing == null)
+                    entity.set(asSys("score"), score);
+                else   
+                    entity.set(asSys("score"), existing.asDouble() + score);
+            }
+            return entity;
+        }
+    }
+    
+    static class PropertyOr extends ItemMap
+    {
+        Map<String, Json> condition;
+        
+        public PropertyOr(Map<String, Json> condition) { this.condition = condition; }
+        
+        public Json eval(Json entity)
+        {
+            for (Map.Entry<String, Json> e : condition.entrySet())
+                if (entity.is(e.getKey(), e.getValue()))
+                    return entity;
+            return Json.nil();
+        }
+    }
+    
+    static ItemMap collectPropertyGroup(String name, Json pattern)
+    {
+        Map<String, Json> values = new HashMap<String, Json>();
+        String [] parts = name.split(":");
+        String operator = parts[0];
+        String groupname = parts[1];
+        values.put(parts[2], pattern.at(name));
+        pattern.delAt(name);
         for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
         {
-            String name = e.getKey();            
+            String next = e.getKey();
+            if (!next.startsWith(operator))
+                continue;
+            String [] nextParts = next.split(":");
+            if (!nextParts[1].equals(groupname))
+                continue;
+            if (!nextParts[0].equals(operator))
+                throw new IllegalArgumentException("Different operator " + nextParts[0] + 
+                        " for logical grouping " + groupname + ", expecting " + parts[0]);
+            values.put(nextParts[2], e.getValue());
+            pattern.delAt(next);
+        }
+        return new PropertyOr(values);
+    }
+    
+    @SuppressWarnings("unchecked")
+    static Collection<ItemMap> collectMaps(Json pattern)
+    {
+        Set<ItemMap> S = new HashSet<ItemMap>();
+        for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
+        {
+            String name = e.getKey();
+            // If name starts with an operator, it spans multple properties
+            if (!Character.isLetter(name.charAt(0)))
+            {
+                S.add(collectPropertyGroup(name, pattern));
+                continue;
+            }
             if (Character.isLetterOrDigit(name.charAt(name.length() - 1)))
                 continue;
             int at = name.length() - 1;
@@ -68,9 +172,24 @@ class HGJsonQuery
                 at--;
             String op = name.substring(at + 1);
             if (op.equals("~="))
-                S.add(new RegExFilter(name, name.substring(0, at + 1), e.getValue().asString()));
+            {
+                S.add(new RegExFilter(name.substring(0, at + 1), e.getValue().asString()));
+            }
+            else if (op.equals("@="))
+            {
+                String [] keywords = null;
+                if (e.getValue().isString())
+                    keywords = e.getValue().asString().split("[ \t,]+");
+                else if (e.getValue().isArray())
+                    keywords = (String[])((List)e.getValue().getValue()).toArray(new String[0]);
+                if (keywords.length > 0)
+                    S.add(new KeywordMatch(name.substring(0, at + 1), keywords, false));
+            }
             else
-               ; // unknown operator are ignored and just remain part of the name of the JSON property
+            {
+               // unknown operator are ignored and just remain part of the name of the JSON property
+            }
+            pattern.delAt(name);
         }
         return S;
     }
@@ -78,23 +197,20 @@ class HGJsonQuery
     @SuppressWarnings("unchecked")
     static HGSearchResult<HGHandle> findObjectPattern(final HyperNodeJson node, Json pattern, boolean exact)
     {
-        final Collection<Filter> filters = collectFilters(pattern);
-        Mapping<HGHandle, Boolean> thefilter = null;
-        if (!filters.isEmpty())
+        pattern = pattern.dup();        
+        final Collection<ItemMap> maps = collectMaps(pattern);
+        Mapping<HGHandle, Boolean> themap = null;
+        if (!maps.isEmpty())
         {
-            pattern = pattern.dup();
-            for (Filter f : filters)
-            {
-                pattern.delAt(f.propertyWithOp);
-            }
-            thefilter = new Mapping<HGHandle, Boolean>()
+            themap = new Mapping<HGHandle, Boolean>()
             {
                 public Boolean eval(HGHandle h)
                 {
                     Json j = node.get(h);
-                    for (Filter f : filters)
+                    for (ItemMap m : maps)
                     {
-                        if (!f.eval(j.at(f.property)))
+                        j = m.eval(j);
+                        if (j.isNull())
                             return false;
                     }
                     return true;
@@ -119,10 +235,10 @@ class HGJsonQuery
             if (exact) 
                 and.add(hg.arity(i));
             HGSearchResult<HGHandle> rs = node.graph.find(and); 
-            if (filters.isEmpty())
+            if (maps.isEmpty())
                 return rs;
             else
-                return new FilteredResultSet<HGHandle>(rs, thefilter, 0);
+                return new FilteredResultSet<HGHandle>(rs, themap, 0);
         }
         else
             return (HGSearchResult<HGHandle>) HGSearchResult.EMPTY;
