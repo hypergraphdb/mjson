@@ -1,12 +1,14 @@
 package hgtest.mjsonapp;
 
 import hgtest.HGTestBase;
+import hgtest.T;
 import mjson.Json;
 import static mjson.Json.*;
 import mjson.hgdb.HyperNodeJson;
 import mjson.hgdb.JsonTypeSchema;
 import org.hypergraphdb.*;
 import org.hypergraphdb.HGQuery.hg;
+import org.hypergraphdb.util.Mapping;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import org.testng.annotations.BeforeClass;
@@ -15,6 +17,29 @@ import org.testng.annotations.AfterClass;
 public class JsonStorageTests  extends HGTestBase
 {
     private HyperNodeJson node;
+
+    Json traverse(Json j, Mapping<Json, Boolean> f)
+    {
+        if (!f.eval(j)) return j;
+        else if (j.isObject())
+        {
+            for (Json x : j.asJsonMap().values())
+                traverse(x, f);
+        }
+        else if (j.isArray())
+        {
+            for (Json x : j.asJsonList())
+                traverse(x, f);
+        }
+        return j;
+    }
+
+    static class RemoveProp implements Mapping<Json, Boolean>
+    {
+        String name;
+        public RemoveProp(String name) { this.name = name; }
+        public Boolean eval(Json j) { if (j.isObject()) j.delAt(name); return true; }
+    }
 
     void reopen()
     {
@@ -38,87 +63,139 @@ public class JsonStorageTests  extends HGTestBase
     }
     
     @Test
-    public void testNull()
+    public void testPrimitives()
     {
-        HGHandle nhandle = node.assertAtom(Json.nil());
-        Assert.assertNotNull(nhandle);
-        HGHandle n2 = node.assertAtom(Json.nil());
-        Assert.assertEquals(nhandle, n2);
+        // All primitives should be assert.
+
+        // null
+        HGHandle n1 = node.add(Json.nil());
+        Assert.assertNotNull(n1);
+        HGHandle n2 = node.add(Json.nil());
+        Assert.assertEquals(n1, n2);
+
+        // boolean
+        HGHandle b1 = node.add(Json.make(true));
+        HGHandle b2 = node.add(Json.make(true));
+        Assert.assertEquals(b1, b2);
+
+        // integer
+        HGHandle i1 = node.add(Json.make(42));
+        HGHandle i2 = node.add(Json.make(42));
+        Assert.assertEquals(i1, i2);
+        
+        // real
+        HGHandle r1 = node.add(Json.make(4265.90384));
+        HGHandle r2 = node.add(Json.make(4265.90384));
+        Assert.assertEquals(r1, r2);
+
+        // string
+        HGHandle s1 = node.add(Json.make("gmdsfgm398rjga;83fja8gjq3pg"));
+        HGHandle s2 = node.add(Json.make("gmdsfgm398rjga;83fja8gjq3pg"));
+        Assert.assertEquals(r1, r2);
+
         reopen();
         Assert.assertEquals(n2, node.exactly(Json.nil()));
+        Assert.assertEquals(b1, node.exactly(Json.make(true)));
+        Assert.assertEquals(i2, node.exactly(Json.make(42)));
+        Assert.assertEquals(r2, node.exactly(Json.make(4265.90384)));
+        Assert.assertEquals(s2, node.exactly(Json.make("gmdsfgm398rjga;83fja8gjq3pg")));
     }
-    
-    /*    
+
     @Test
-    public void testSubgraphOperations()
+    public void testObjectAdd()
     {
-        HGSubgraph subgraph = new HGSubgraph();
-        graph.add(subgraph);
-
-        HGHandle stringType = graph.getTypeSystem().getTypeHandle(String.class);
-        HGHandle linkType = graph.getTypeSystem().getTypeHandle(HGPlainLink.class);
-        HGHandle globalAtom = graph.add("global");
-        subgraph.add(globalAtom);
-        Assert.assertTrue(subgraph.isMember(globalAtom));
-        HGHandle globalOnly = graph.add("globalOnly");
-        
-        HGHandle localAtom = subgraph.add("localAtom", stringType, 0);
-        Assert.assertTrue(subgraph.isMember(localAtom));
-        HGHandle localDefine = graph.getHandleFactory().makeHandle();
-        subgraph.define(localDefine, stringType, "localDefinedAtom", 0);
-        Assert.assertTrue(subgraph.isMember(localDefine));
-        
-        HGHandle toBeRemoved = subgraph.add("toBeRemoved", stringType, 0);
-        Assert.assertTrue(subgraph.isMember(toBeRemoved));
-        subgraph.remove(toBeRemoved);
-        HGHandle toBeReplaced = subgraph.add("toBeReplaced", stringType, 0);
-        Assert.assertTrue(subgraph.get(toBeReplaced).equals("toBeReplaced"));
-        
-        // A b/w atoms in the subgraph, attached itself to the subgraph
-        HGHandle localLink1 = subgraph.add(new HGPlainLink(localAtom, globalAtom), linkType, 0);
-        // A b/w atoms not all in the subgraph, but still attached itself to the subgraph
-        HGHandle localLink2 = subgraph.add(new HGPlainLink(globalOnly, localAtom), linkType, 0);
-        // A b/w atoms in the subgraph, but not attached itself to the subgraph
-        HGHandle globalLink = graph.add(new HGPlainLink(localDefine, globalAtom), linkType, 0);
-        HGHandle globalLink2 = graph.add(new HGPlainLink(globalOnly, localDefine, globalAtom), linkType, 0);
-        Assert.assertFalse(subgraph.getIncidenceSet(localDefine).contains(globalLink2));
-        
-        this.reopenDb();
-        
-        stringType = graph.getTypeSystem().getTypeHandle(String.class);
-        subgraph = graph.get(subgraph.getAtomHandle().getPersistent());        
-        Assert.assertNull(subgraph.get(globalOnly));
-        Assert.assertNull(subgraph.findOne(hg.eq("toBeRemoved")));
-        Assert.assertNotNull(graph.findOne(hg.eq("toBeRemoved")));
-        subgraph.replace(toBeReplaced, "alreadyReplaced", stringType);
-        Assert.assertEquals(graph.getOne(hg.eq("toBeReplaced")), null);
-
-        Assert.assertEqualsNoOrder(subgraph.getAll(hg.type(String.class)).toArray(), 
-                            new Object[] {"global", "localAtom", "localDefinedAtom", "alreadyReplaced" });
-        
-        // Checks links and incidence sets
-        Assert.assertTrue(subgraph.isMember(localLink1));
-        Assert.assertTrue(subgraph.isMember(localLink2));
-        Assert.assertFalse(subgraph.isMember(globalLink));
-        
-        Assert.assertEquals(subgraph.getIncidenceSet(localAtom).size(), 2);
-        Assert.assertEquals(subgraph.getIncidenceSet(globalAtom).size(), 1);
-        Assert.assertEquals(subgraph.getIncidenceSet(localDefine).size(), 0);
-        Assert.assertEquals(subgraph.getIncidenceSet(globalOnly).size(), 1);
-        
-        Assert.assertEqualsNoOrder(subgraph.getIncidenceSet(localAtom).toArray(), 
-                                   new Object[] { localLink1, localLink2 });
-        
+        // Adding non-entity objects should also assert
+        Json o = Json.object("name", "HyperGraphDB", "nosql", true, "year", 2004, "parent", null);
+        HGHandle h = node.add(o);
+        HGHandle h2 = node.add(o);
+        Assert.assertFalse(o.has("hghandle"));
+        Assert.assertEquals(h, h2);
     }
-    */
-    /*    
+
+    @Test
+    public void testAssertNumber()
+    {
+        // The smallest number expressible as the sum of cubes in two different ways
+        Json num = Json.make(1729);
+        HGHandle h = node.add(num);
+        Assert.assertEquals(h, node.add(num));
+        Assert.assertEquals(h, node.exactly(num));        
+        reopen();
+        Assert.assertEquals(h, node.exactly(num));        
+        Assert.assertEquals(h, node.add(num));
+    }
+
+    @Test
+    public void testAddEntity()
+    {
+        // Adding an entity should create a new atom each time.
+        Json entity = Json.object("entity", "book", 
+                                  "title", "Better Yourself", 
+                                  "author", "Schmuck Guru", 
+                                  "year", 1987);
+        HGHandle h1 = node.add(entity);
+        Assert.assertNotNull(h1);
+        Assert.assertTrue(entity.has("hghandle"));
+        // Adding it again should result in the same handle since it's in the cache
+        Assert.assertEquals(node.add(entity), h1);
+        // Adding a clone should add a new atom
+        Json entity2 = entity.dup().delAt("hghandle");
+        HGHandle h2 = node.add(entity2);
+        Assert.assertNotNull(h2);
+        Assert.assertTrue(entity2.has("hghandle"));
+        Assert.assertNotEquals(h1, h2);
+    }
+
+    @Test
+    public void testComplexEntity()
+    {
+        // The following is an entity that has some other entities nested in it, at various
+        // levels. It also has some values that should be immutable and not duplicated in 
+        // the database.
+        Json object = Json.read(T.getResourceContents("/hgtest/mjsonapp/data1.json"));
+        HGHandle he = node.add(object);
+        Assert.assertTrue(object.has("hghandle"));
+        // Nested entity should also have a handle:
+        traverse(object, new Mapping<Json, Boolean>() { public Boolean eval(Json j) 
+                { if (j.isObject() && j.has("entity")) Assert.assertTrue(j.has("hghandle")); return true; } 
+        });
+
+        // There is still more work to do on spec-ing the entity management. The decision
+        // to forbid entities inside a value doesn't seem to square well with some sensible
+        // use cases, like having an array of entities as a property of an enclosing entity -
+        // the array is immutable to that prevents us from having entities inside it, which doesn't
+        // make much sense. We need different rules before this and other similar tests can be completed.
+
+        // ... and be added as a separate atom
+        //        Assert.assertNotEquals(object.at("owns").at(0).at("hghandle"), object.at("owns").at(1).at("hghandle"));
+
+        // except when there is a primary key match for this kind of entity
+        //        Assert.assertNotEquals(object.at("spouse").at("hghandle"), object.at("watching").at(0).at("star"));
+
+        // Nested value should not have handle
+        Assert.assertFalse(object.at("stats").has("hghandle"));
+
+        /*        reopen();
+        Json fromdb = node.get(he);
+        fromdb = traverse(fromdb.dup(), new RemoveProp("hghandle"));
+        Assert.assertTrue(fromdb.equals(object));
+        fromdb = node.get(he);
+        Assert.assertEquals(traverse(fromdb.dup(), new RemoveProp("hghandle")), object);
+        Assert.assertEquals(node.add(object), he);         */
+    }
+
+    @Test
+    public void testEntityInValue()
+    {
+    }
+
     public static void main(String[] argv)
     {
         JsonStorageTests test = new JsonStorageTests();
         try
         {
             test.setUp();
-            test.testSubgraphOperations();
+            test.testComplexEntity();
             System.out.println("test passed successfully");
         }
         catch (Throwable t)
@@ -129,5 +206,5 @@ public class JsonStorageTests  extends HGTestBase
         {
             test.tearDown();
         }
-        } */
+    }
 }

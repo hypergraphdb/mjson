@@ -1,0 +1,68 @@
+{
+    "entity":"user",
+    "username":"morbo",
+    "protected":false,
+    "full_name":"Morbo the Annihilator",
+    "gender":"",
+    "age":41,
+    "location":"Germany",
+    "about":"student of applied informatics.\nextreme audiophil. addicted to movies and tv-shows.",
+    "joined":1291859039,
+    "favoriteMovie":{},
+    "avatar":"http://trakt.us/images/avatars/706.jpg",
+    "url":"http://trakt.tv/user/morbo",
+    "vip":false,
+    "spouse":{"entity":"user", "username":"aissa", "full_name":"Asko Tedesco"},
+    "stats":{
+            "friends":25,
+            "shows":{
+            "library":169,
+            "watched":93,
+            "collection":153,
+            "shouts":13,
+            "loved":42,
+            "hated":6
+        }
+    },
+    "owns":[
+      {
+        "type":"house",
+        "rooms":3
+      },
+      {
+        "type":"house",
+        "rooms":3
+      },
+      {
+        "type":"movie",
+        "title":"Kill Bill",
+        "director":{"type":"user", "username":"quentin"}
+      },
+      {
+        "type":"movie",
+        "title":"Talk to Her",
+        "director":{"type":"user", "username":"almodovar"}
+      }
+    ],
+    "watching":[
+      {
+        "title":"The Girl with the Dragon Tattoo",
+        "year":2011,
+        "star":{"type":"user", "username":"aissa", "full_name":"Asko Tedesco"},
+        "released":1324454400,            
+        "url":"http://dev.trakt.tv/movie/the-girl-with-the-dragon-tattoo-2011",
+            "trailer":"http://www.youtube.com/watch?v=RL8LI-h2WFc",
+            "runtime":0,
+            "tagline":"The Feel Bad Movie Of Christmas",
+            "overview":"Remake of the Swedish movie based on the book.",
+            "certification":"",
+            "imdb_id":"tt1568346",
+            "tmdb_id":"65754",
+            "images":{
+                "poster":"http://trakt.us/images/poster-dark.jpg",
+                "fanart":"http://trakt.us/images/fanart-dark.jpg"
+            },
+            "genres":["Action","Comedy"]
+     }
+   ]
+}
