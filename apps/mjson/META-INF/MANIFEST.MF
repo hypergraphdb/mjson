@@ -1,0 +1,21 @@
+Manifest-Version: 1.0
+Export-Package: mjson.hgdb;uses:="org.hypergraphdb.storage,mjson,org.h
+ ypergraphdb.query,org.hypergraphdb.util,org.hypergraphdb.indexing,org
+ .hypergraphdb.type.javaprimitive,org.hypergraphdb.query.impl,org.hype
+ rgraphdb.type,org.hypergraphdb.transaction,org.hypergraphdb,org.hyper
+ graphdb.handle",mjson
+Built-By: borislav
+Build-Jdk: 1.6.0_27
+Bundle-Version: 1.3.0.SNAPSHOT
+Tool: Bnd-0.0.238
+Bundle-Name: HyperGraphDB MJSON Persistence
+Bnd-LastModified: 1404706462924
+Created-By: Apache Maven Bundle Plugin
+Bundle-ManifestVersion: 2
+Bundle-SymbolicName: org.hypergraphdb-hgdbmjson;singleton:=true
+Import-Package: mjson,mjson.hgdb,org.hypergraphdb,org.hypergraphdb.han
+ dle,org.hypergraphdb.indexing,org.hypergraphdb.query,org.hypergraphdb
+ .query.impl,org.hypergraphdb.storage,org.hypergraphdb.transaction,org
+ .hypergraphdb.type,org.hypergraphdb.type.javaprimitive,org.hypergraph
+ db.util
+
