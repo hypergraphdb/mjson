@@ -1,6 +1,7 @@
 package mjson.hgdb;
 
 import java.util.ArrayList;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -25,7 +26,6 @@ import org.hypergraphdb.transaction.TxCacheMap;
 import org.hypergraphdb.util.ArrayBasedSet;
 import org.hypergraphdb.util.HGUtils;
 import org.hypergraphdb.util.WeakIdentityHashMap;
-import org.hypergraphdb.util.Mapping;
 
 /**
  * <p>
@@ -463,22 +463,23 @@ public class HyperNodeJson implements HyperNode
         if (h != null)
             return h;
         if (j.isObject() && j.has("hghandle"))
-            return graph.getHandleFactory().makeHandle(j.at("hghandle").asString());    
-
-        return graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() {
+            h = graph.getHandleFactory().makeHandle(j.at("hghandle").asString());    
+        else
+        	h = graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() {
             public HGHandle call()
             {
                 return addImpl(j);
             }
         });
+        get(h); // ensure presence in local atomTx
+        return h;
     }
 
     private HGHandle addImpl(Json j)
     {
-        if (entityInterface.isEntity(j))
-            return addTxn(j);
-        else
-            return assertTxn(j);
+    	HGHandle h = entityInterface.isEntity(j) ? addTxn(j) : assertTxn(j);
+        get(h); // ensure presence in local atomTx
+        return h;
     }
 
     private HGHandle addTxn(Json j)
@@ -619,245 +620,8 @@ public class HyperNodeJson implements HyperNode
         return h;
     }
 
-    /**
-     * <p>
-     * Add a new atom. If the atom is a <code>Json</code> compound (array or object), first assert all
-     * its elements/properties. That is, while the {@link #add(Object)} method will add a new atom for
-     * the top-level structure as well as for all nested structures and while the {@link HyperNodeJson#assertAtom(Object)}
-     * method will always first lookup if there's a matching atom with the same value, this method
-     * makes sure the top-level structure is a new atom, always, while nested properties or elements
-     * are still <em>asserted</em> (i.e. added only if not already in the database). 
-     * </p>
-     * 
-     * @param atom
-     * @return
-     */
-    /*
-    public HGHandle addTopLevel(Object atom)
-    {
-        if (! (atom instanceof Json))
-            return graph.add(atom);
-        Json j = (Json)atom;
-        if (j.isObject())
-        {
-            HGHandle thisHandle = j.has("hghandle") ? 
-                    graph.getHandleFactory().makeHandle(j.atDel("hghandle").asString()) : null;            
-            HGHandle [] A = new HGHandle[j.asJsonMap().size()];
-            int i = 0;
-            for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
-            {
-                HGHandle nameHandle = findName.var("name", e.getKey()).findOne();                
-                if (nameHandle == null)
-                {
-                	//System.out.println("name " + e.getKey() + " not found");
-                    nameHandle = graph.add(e.getKey());
-                }
-                HGHandle valueHandle = match(e.getValue(), true);
-                if (valueHandle == null)
-                    valueHandle = assertAtom(e.getValue());
-                HGHandle propHandle =  findProperty.var("name", nameHandle).var("value", valueHandle).findOne();                		
-                if (propHandle == null)
-                {
-                	//System.out.println("prop " + graph.get(nameHandle) + "=" + graph.get(valueHandle) + " not found");
-                    propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
-                }
-                A[i++] = propHandle;
-            }
-            if (thisHandle != null)
-            {
-                graph.define(thisHandle, JsonTypeSchema.objectTypeHandle, new HGValueLink(j, A), 0);
-                return thisHandle;
-            }
-            else
-                return graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
-        }
-        else if (j.isArray())
-        {
-            HGHandle [] A = new HGHandle[j.asJsonList().size()];
-            for (int i = 0; i < A.length; i++)
-            {
-                HGHandle x = match(j.at(i), true);
-                if (x == null)
-                    x = assertAtom(j.at(i));
-                A[i] = x;
-            }
-            return graph.add(new HGValueLink(j, A), JsonTypeSchema.arrayTypeHandle);                       
-        }
-        else
-            return add(j);
-    }
-    */
-    /**
-     * <p>
-     * Asserting an atom takes the perspective that the graph is a knowledge base and adds new piece of data
-     * only if it's not already in the database.   
-     * </p>
-     * 
-     * <p>
-     * For <code>Json</code> atoms, lookup is performed by trying to find the exact value of the 
-     * <code>Json</code> entity. For all other types of atoms, the <code>hg.assertAtom</code> from
-     * the core <code>HyperGraphDB</code> API is used. 
-     * </p>
-     * 
-     * @param atom
-     * @return
-     */
-    /*
-    public HGHandle assertAtom(Object atom)
-    {
-        if (! (atom instanceof Json))
-            return hg.assertAtom(graph, atom);
-        Json j = (Json)atom;
-        HGHandle h = getHandle(j);
-        if (h != null)
-            return h;
-        else if (j.isNull())
-        {
-            h = getNullHandle();
-            if (h == null)
-                h = graph.add(j, JsonTypeSchema.nullTypeHandle);            
-        }
-        else if (j.isBoolean())
-        {
-            h = findBoolean.var("value", j).findOne();
-            if (h == null)
-                h = graph.add(j, JsonTypeSchema.booleanTypeHandle);            
-        }
-        else if (j.isString())
-        {
-            h = findString.var("value", j.asString()).findOne();
-            if (h == null)
-                h = graph.add(j, JsonTypeSchema.stringTypeHandle);            
-        }
-        else if (j.isNumber())
-        {
-            h = findNumber.var("value", j.asDouble()).findOne();
-            if (h == null)
-                h = graph.add(j, JsonTypeSchema.numberTypeHandle);            
-        }
-        else if (j.isArray())
-        {
-            HGHandle [] A = new HGHandle[j.asJsonList().size()];
-            for (int i = 0; i < A.length; i++)
-            {
-                HGHandle x = match(j.at(i), true);
-                if (x == null)
-                    x = assertAtom(j.at(i));
-                A[i] = x;
-            }
-            h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.arrayTypeHandle),hg.orderedLink(A)));
-            if (h == null)
-                h = graph.add(new HGValueLink(j, A), JsonTypeSchema.arrayTypeHandle);            
-        }
-        else if (j.isObject())
-        {
-            HGHandle thisHandle = j.has("hghandle") ? 
-                    graph.getHandleFactory().makeHandle(j.atDel("hghandle").asString()) : null;
-            HGHandle [] A = new HGHandle[j.asJsonMap().size()];
-            int i = 0;
-            for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
-            {
-                HGHandle nameHandle = hg.findOne(graph, hg.eq(e.getKey()));
-                if (nameHandle == null)
-                    nameHandle = graph.add(e.getKey());
-                HGHandle valueHandle = match(e.getValue(), true);
-                if (valueHandle == null)
-                    valueHandle = assertAtom(e.getValue());
-                HGHandle propHandle = hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
-                                                               hg.link(nameHandle, 
-                                                                       valueHandle)));
-                if (propHandle == null)
-                    propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
-                A[i++] = propHandle;
-            }
-            if (thisHandle != null)
-            {
-                graph.define(thisHandle, JsonTypeSchema.objectTypeHandle, new HGValueLink(j, A), 0);
-                h = thisHandle;
-            }
-            else
-            {
-                h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.objectTypeHandle), 
-                                             hg.link(A), 
-                                             hg.arity(i)));
-                if (h == null)
-                    h = graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
-            }
-        }
-        return h;
-    }
-
-    public HGHandle add(Object atom)
-    {
-        if (! (atom instanceof Json))
-            return graph.add(atom);
-        Json j = (Json)atom;
-        if (j.isNull())
-        {
-            return graph.add(j, JsonTypeSchema.nullTypeHandle);            
-        }
-        else if (j.isBoolean())
-        {
-            return graph.add(j, JsonTypeSchema.booleanTypeHandle);            
-        }
-        else if (j.isString())
-        {
-            return graph.add(j, JsonTypeSchema.stringTypeHandle);            
-        }
-        else if (j.isNumber())
-        {
-            return graph.add(j, JsonTypeSchema.numberTypeHandle);            
-        }
-        else if (j.isArray())
-        {
-            int length = j.asJsonList().size();
-            //List<HGHandle> L = ((ArrayJsonHGDB)j).targets;
-            //L.clear();
-            HGHandle [] A = new HGHandle[length];
-            for (int i = 0; i < length; i++)
-            {
-                HGHandle x = getHandle(j.at(i));
-                if (x == null)
-                    x = add(j.at(i));
-                //L.add(x);
-                A[i] = x;
-            }            
-            return graph.add(new HGValueLink(j, A), JsonTypeSchema.arrayTypeHandle);            
-        }
-        else if (j.isObject())
-        {
-            HGHandle thisHandle = j.has("hghandle") ? 
-                    graph.getHandleFactory().makeHandle(j.atDel("hghandle").asString()) : null;
-            HGHandle [] A = new HGHandle[j.asJsonMap().size()];                    
-            int i = 0;
-            for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
-            {
-                HGHandle nameHandle = hg.findOne(graph, hg.eq(e.getKey()));
-                if (nameHandle == null)
-                    nameHandle = graph.add(e.getKey());
-                HGHandle valueHandle = getHandle(e.getValue());
-                if (valueHandle == null)
-                    valueHandle = add(e.getValue());
-                HGHandle propHandle = hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
-                                                               hg.link(nameHandle,
-                                                                       valueHandle)));
-                if (propHandle == null)
-                    propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
-                A[i++] = propHandle;
-            }
-            if (thisHandle != null)
-            {
-                graph.define(thisHandle, JsonTypeSchema.objectTypeHandle, new HGValueLink(j, A), 0);
-                return thisHandle;
-            }
-            else
-                return graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
-        }
-        throw new IllegalArgumentException();
-    }
-    */    
-    public HGHandle add(Object atom, HGHandle type, int flags)
-    {
+   public HGHandle add(Object atom, HGHandle type, int flags)
+   {
         return graph.add(atom, type, flags);
     }
 
