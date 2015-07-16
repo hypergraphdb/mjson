@@ -63,7 +63,9 @@ public class HyperNodeJson implements HyperNode
     {
         findName = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(String.class), hg.eq(hg.var("name"))));
         findProperty = HGQuery.make(HGHandle.class, graph).compile(
-        			hg.and(hg.type(graph.getTypeSystem().getTypeHandle(JsonProperty.class)), hg.incident(hg.var("name")), hg.incident(hg.var("value"))));
+           hg.and(hg.type(graph.getTypeSystem().getTypeHandle(JsonProperty.class)), 
+                  hg.incident(hg.var("name")), 
+                  hg.incident(hg.var("value"))));
         findBoolean = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(JsonTypeSchema.booleanTypeHandle), 
         					hg.eq(hg.var("value"))));
         findString = HGQuery.make(HGHandle.class, graph).compile(hg.and(hg.type(JsonTypeSchema.stringTypeHandle), 
@@ -463,14 +465,34 @@ public class HyperNodeJson implements HyperNode
         if (h != null)
             return h;
         if (j.isObject() && j.has("hghandle"))
+        {
+            // We have several possible situations here: 
+            // 1. the atom is not stored in the db at all => we have to add it
+            // 2. the atom is stored already and it's different => we have to replace
+            // 3. the atom is stored but it's the same extensionally => we just put in cache
             h = graph.getHandleFactory().makeHandle(j.at("hghandle").asString());    
-        else
-        	h = graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() {
-            public HGHandle call()
+            Json existing = get(h);
+            if (existing == null)
+                add(j);
+            else if (j == existing)
+                return h;
+            else if (!existing.equals(j))
+                replace(h, j, JsonTypeSchema.objectTypeHandle);
+            else
             {
-                return addImpl(j);
+                // Just update the caches
+                HGLiveHandle liveHandle = graph.getCache().get(h.getPersistent());
+                graph.getCache().atomRefresh(liveHandle, j, true);
+                atomsTx.load(j, liveHandle);
             }
-        });
+        }
+        else
+      	    h = graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() {
+                public HGHandle call()
+                {
+                    return addImpl(j);
+                }
+            });
         get(h); // ensure presence in local atomTx
         return h;
     }
@@ -515,6 +537,8 @@ public class HyperNodeJson implements HyperNode
         }
         else if (j.isObject())
         {
+            HGHandle thisHandle = j.has("hghandle") ? 
+                graph.getHandleFactory().makeHandle(j.atDel("hghandle").asString()) : null;
             HGHandle [] A = new HGHandle[j.asJsonMap().size()];                    
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
@@ -534,10 +558,17 @@ public class HyperNodeJson implements HyperNode
                     propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
                 A[i++] = propHandle;
             }
-            HGHandle h = graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
-            if (entityInterface.attachHandleToEntities())
-                j.set("hghandle", h.getPersistent().toString());
-            return h;
+            if (thisHandle != null)
+            {
+                graph.define(thisHandle, JsonTypeSchema.objectTypeHandle, new HGValueLink(j, A), 0);
+            }
+            else
+            {
+                thisHandle = graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
+                if (entityInterface.attachHandleToEntities())
+                    j.set("hghandle", thisHandle.getPersistent().toString());
+            }
+            return thisHandle;
         }
         throw new IllegalArgumentException();
     }
