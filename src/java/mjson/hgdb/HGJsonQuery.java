@@ -159,7 +159,7 @@ class HGJsonQuery
         for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
         {
             String name = e.getKey();
-            // If name starts with an operator, it spans multple properties
+            // If name starts with an operator, it spans multiple properties
             if (!Character.isLetter(name.charAt(0)))
             {
                 S.add(collectPropertyGroup(name, pattern));

@@ -1,7 +1,6 @@
 package mjson.hgdb;
 
 import java.util.ArrayList;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +14,7 @@ import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGQuery;
 import org.hypergraphdb.HGQuery.hg;
 import org.hypergraphdb.HGSearchResult;
+import org.hypergraphdb.HGSystemFlags;
 import org.hypergraphdb.HGValueLink;
 import org.hypergraphdb.HyperGraph;
 import org.hypergraphdb.HyperNode;
@@ -473,7 +473,9 @@ public class HyperNodeJson implements HyperNode
             h = graph.getHandleFactory().makeHandle(j.at("hghandle").asString());    
             Json existing = get(h);
             if (existing == null)
-                add(j);
+            	graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>(){
+            		public HGHandle call() { return addImpl(j); }
+            	});
             else if (j == existing)
                 return h;
             else if (!existing.equals(j))

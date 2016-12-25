@@ -9,14 +9,14 @@ import mjson.hgdb.JsonTypeSchema;
 import org.hypergraphdb.*;
 import org.hypergraphdb.HGQuery.hg;
 import org.hypergraphdb.util.Mapping;
-import org.testng.Assert;
-import org.testng.annotations.Test;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.AfterClass;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 public class JsonStorageTests  extends HGTestBase
 {
-    private HyperNodeJson node;
+    static HyperNodeJson node;
 
     Json traverse(Json j, Mapping<Json, Boolean> f)
     {
@@ -48,16 +48,16 @@ public class JsonStorageTests  extends HGTestBase
     }
 
     @BeforeClass
-    public void setUp()
+    public static void setUp()
     {
         HGConfiguration config = new HGConfiguration();
         config.getTypeConfiguration().addSchema(new JsonTypeSchema());
         graph = HGEnvironment.get(getGraphLocation(), config);
-        this.node = new HyperNodeJson(graph);
+        node = new HyperNodeJson(graph);
     }
 
     @AfterClass
-    public void tearDown()
+    public static void tearDown()
     {
         graph.close();
     }
@@ -143,7 +143,7 @@ public class JsonStorageTests  extends HGTestBase
         HGHandle h2 = node.add(entity2);
         Assert.assertNotNull(h2);
         Assert.assertTrue(entity2.has("hghandle"));
-        Assert.assertNotEquals(h1, h2);
+        Assert.assertFalse(h1.equals(h2));
     }
 
     @Test
@@ -195,7 +195,7 @@ public class JsonStorageTests  extends HGTestBase
         try
         {
             test.setUp();
-            test.testComplexEntity();
+            test.testAddEntity();
             System.out.println("test passed successfully");
         }
         catch (Throwable t)

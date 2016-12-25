@@ -5,11 +5,11 @@ Export-Package: mjson.hgdb;uses:="org.hypergraphdb.storage,mjson,org.h
  rgraphdb.type,org.hypergraphdb.transaction,org.hypergraphdb,org.hyper
  graphdb.handle",mjson
 Built-By: borislav
-Build-Jdk: 1.6.0_27
-Bundle-Version: 1.3.0.SNAPSHOT
+Build-Jdk: 1.7.0_101
+Bundle-Version: 1.4.0.SNAPSHOT
 Tool: Bnd-0.0.238
 Bundle-Name: HyperGraphDB MJSON Persistence
-Bnd-LastModified: 1404706462924
+Bnd-LastModified: 1482694288373
 Created-By: Apache Maven Bundle Plugin
 Bundle-ManifestVersion: 2
 Bundle-SymbolicName: org.hypergraphdb-hgdbmjson;singleton:=true
