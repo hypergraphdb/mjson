@@ -1,20 +1,24 @@
 package hgtest.mjsonapp;
 
-import hgtest.HGTestBase;
-import hgtest.T;
-import mjson.Json;
-import static mjson.Json.*;
-import mjson.hgdb.HyperNodeJson;
-import mjson.hgdb.JsonTypeSchema;
-import org.hypergraphdb.*;
-import org.hypergraphdb.HGQuery.hg;
+import java.util.List;
+
+import org.hypergraphdb.HGConfiguration;
+import org.hypergraphdb.HGEnvironment;
+import org.hypergraphdb.HGHandle;
+import org.hypergraphdb.util.HGUtils;
 import org.hypergraphdb.util.Mapping;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class JsonStorageTests  extends HGTestBase
+import hgtest.HGTestBase;
+import hgtest.T;
+import mjson.Json;
+import mjson.hgdb.HyperNodeJson;
+import mjson.hgdb.JsonTypeSchema;
+
+public class JsonStorageTests extends HGTestBase
 {
     static HyperNodeJson node;
 
@@ -41,31 +45,42 @@ public class JsonStorageTests  extends HGTestBase
         public Boolean eval(Json j) { if (j.isObject()) j.delAt(name); return true; }
     }
 
+    static void openNode()
+    {
+        graph = HGEnvironment.get(getGraphLocation(), config);
+        node = new HyperNodeJson(graph);    	
+    }
+    
+    static void closeNode()
+    {
+    	graph.close();
+    }
+    
     void reopen()
     {
         tearDown();
-        setUp();
+        openNode();
     }
 
     @BeforeClass
     public static void setUp()
     {
-        HGConfiguration config = new HGConfiguration();
+        HGUtils.dropHyperGraphInstance(getGraphLocation());    	
+        config = new HGConfiguration();
         config.getTypeConfiguration().addSchema(new JsonTypeSchema());
-        graph = HGEnvironment.get(getGraphLocation(), config);
-        node = new HyperNodeJson(graph);
+        openNode();
     }
 
     @AfterClass
     public static void tearDown()
     {
-        graph.close();
+    	closeNode();
     }
     
     @Test
     public void testPrimitives()
     {
-        // All primitives should be assert.
+        // All primitives should be asserted.
 
         // null
         HGHandle n1 = node.add(Json.nil());
@@ -89,7 +104,7 @@ public class JsonStorageTests  extends HGTestBase
         Assert.assertEquals(r1, r2);
 
         // string
-        HGHandle s1 = node.add(Json.make("gmdsfgm398rjga;83fja8gjq3pg"));
+        node.add(Json.make("gmdsfgm398rjga;83fja8gjq3pg"));
         HGHandle s2 = node.add(Json.make("gmdsfgm398rjga;83fja8gjq3pg"));
         Assert.assertEquals(r1, r2);
 
@@ -107,7 +122,7 @@ public class JsonStorageTests  extends HGTestBase
         // Adding non-entity objects should also assert
         Json o = Json.object("name", "HyperGraphDB", "nosql", true, "year", 2004, "parent", null);
         HGHandle h = node.add(o);
-        HGHandle h2 = node.add(o);
+        HGHandle h2 = node.add(o.dup());
         Assert.assertFalse(o.has("hghandle"));
         Assert.assertEquals(h, h2);
     }
@@ -153,7 +168,7 @@ public class JsonStorageTests  extends HGTestBase
         // levels. It also has some values that should be immutable and not duplicated in 
         // the database.
         Json object = Json.read(T.getResourceContents("/hgtest/mjsonapp/data1.json"));
-        HGHandle he = node.add(object);
+        node.add(object);
         Assert.assertTrue(object.has("hghandle"));
         // Nested entity should also have a handle:
         traverse(object, new Mapping<Json, Boolean>() { public Boolean eval(Json j) 
@@ -182,6 +197,20 @@ public class JsonStorageTests  extends HGTestBase
         fromdb = node.get(he);
         Assert.assertEquals(traverse(fromdb.dup(), new RemoveProp("hghandle")), object);
         Assert.assertEquals(node.add(object), he);         */
+        
+        List<Json> L = node.getAll(
+        		Json.object("entity", "user",
+    					"username", "morbo",
+    					"stats", Json.object("friends", 25))).asJsonList();
+        System.out.println(L.size());
+//        HGHandle h1 = node.match(Json.object("sound", true), false);
+//        HGHandle propHandle = node.findProperty("stats", h1);
+        Assert.assertTrue(L.size() >= 1);
+        Assert.assertTrue(node.getAll(
+        		Json.object("entity", "user",
+        					"username", "morbo",
+        					"stats", Json.object("sound", true))).asJsonList().size() >= 1);
+
     }
 
     @Test
@@ -194,7 +223,7 @@ public class JsonStorageTests  extends HGTestBase
         JsonStorageTests test = new JsonStorageTests();
         try
         {
-            test.setUp();
+        	JsonStorageTests.setUp();
             test.testAddEntity();
             System.out.println("test passed successfully");
         }
@@ -204,7 +233,7 @@ public class JsonStorageTests  extends HGTestBase
         }
         finally
         {
-            test.tearDown();
+        	JsonStorageTests.tearDown();
         }
     }
 }

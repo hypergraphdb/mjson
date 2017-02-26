@@ -22,7 +22,8 @@
             "shouts":13,
             "loved":42,
             "hated":6
-        }
+        },
+        "sound": true
     },
     "owns":[
       {

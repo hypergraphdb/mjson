@@ -221,7 +221,14 @@ class HGJsonQuery
         int i = 0;
         for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
         {
-            HGHandle propHandle = node.findProperty(e.getKey(), e.getValue());                
+            HGHandle propHandle = null; 
+            if (!e.getValue().isObject())
+            	propHandle = node.findProperty(e.getKey(), e.getValue());
+            else
+            {
+            	HGHandle matchedValue = node.match(e.getValue(), exact);
+            	propHandle = node.findProperty(e.getKey(), matchedValue);
+            }
             if (propHandle == null)
             {
                 A = null;
