@@ -14,7 +14,6 @@ import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGQuery;
 import org.hypergraphdb.HGQuery.hg;
 import org.hypergraphdb.HGSearchResult;
-import org.hypergraphdb.HGSystemFlags;
 import org.hypergraphdb.HGValueLink;
 import org.hypergraphdb.HyperGraph;
 import org.hypergraphdb.HyperNode;
@@ -552,7 +551,7 @@ public class HyperNodeJson implements HyperNode
                 HGHandle nameHandle = hg.findOne(graph, hg.eq(e.getKey()));
                 if (nameHandle == null)
                     nameHandle = graph.add(e.getKey());
-                else // if the name doesn't exist, the property is defintely not there, otherwise it might
+                else // if the name doesn't exist, the property is definitely not there, otherwise it might
                     propHandle = hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
                                                                hg.link(nameHandle,
                                                                        valueHandle)));

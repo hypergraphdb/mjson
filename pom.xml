@@ -24,10 +24,10 @@
       <id>hypergraphdb</id>
       <url>http://hypergraphdb.org/maven</url>
     </repository>
-		<repository>
-			<id>central-snapshots</id>
-			<url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-		</repository>    
+    <repository>
+      <id>central-snapshots</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+    </repository>    
   </repositories>
   
   <dependencies>  
@@ -39,7 +39,7 @@
     <dependency>
       <groupId>org.sharegov</groupId>
       <artifactId>mjson</artifactId>
-      <version>1.4.0</version>
+      <version>1.4.1</version>
     </dependency>
     <dependency>
       <groupId>org.hypergraphdb</groupId>
