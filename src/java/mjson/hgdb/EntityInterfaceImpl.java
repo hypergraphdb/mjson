@@ -13,7 +13,8 @@ import org.hypergraphdb.HGSearchResult;
  */
 public class EntityInterfaceImpl implements EntityInterface
 {
-    private boolean attachHandleFlag = true;
+    private String handleProperty = "hghandle";
+    private String typeProperty = "entity";
     private boolean allowEntitiesInValuesFlag = false;
     private String primaryKey = null;
 
@@ -22,23 +23,32 @@ public class EntityInterfaceImpl implements EntityInterface
      */
     public boolean isEntity(Json object)
     {
-        if (!object.isObject())
-            return false;
         Json p = object.at("entity");
         return p != null && p.isString();
     }
 
-    public EntityInterfaceImpl attachHandleToEntities(boolean f)
+    public EntityInterfaceImpl entityHandleProperty(String handleProperty)
     {
-        attachHandleFlag = f;
+        this.handleProperty = handleProperty;
         return this;
     }
 
-    public boolean attachHandleToEntities()
+    public String entityHandleProperty()
     {
-        return attachHandleFlag;
+        return handleProperty;
     }
 
+    public EntityInterfaceImpl entityTypeProperty(String typeProperty)
+    {
+        this.typeProperty = typeProperty;
+        return this;
+    }
+
+    public String entityTypeProperty()
+    {
+        return typeProperty;
+    }
+    
     public EntityInterfaceImpl allowEntitiesInImmutableValues(boolean f)
     {
         allowEntitiesInValuesFlag = f;

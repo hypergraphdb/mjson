@@ -14,7 +14,6 @@ import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGQuery;
 import org.hypergraphdb.HGQuery.hg;
 import org.hypergraphdb.HGSearchResult;
-import org.hypergraphdb.HGSystemFlags;
 import org.hypergraphdb.HGValueLink;
 import org.hypergraphdb.HyperGraph;
 import org.hypergraphdb.HyperNode;
@@ -105,7 +104,7 @@ public class HyperNodeJson implements HyperNode
      */
     public HyperNodeJson setEntityInterface(EntityInterface entityInterface)
     {
-        entityInterface.attachHandleToEntities(); // check for null entityInterface
+        entityInterface.entityHandleProperty(); // check for null entityInterface
         this.entityInterface = entityInterface;
         return this;
     }
@@ -272,7 +271,7 @@ public class HyperNodeJson implements HyperNode
     }
 
     /**
-     * <p>Return <code>find(pattern, false</code>.</p>
+     * <p>Return {@link #find(Json, boolean)} with <code>false</code> exact argument.</p>
      */
     public HGSearchResult<HGHandle> find(Json pattern)
     {
@@ -401,10 +400,11 @@ public class HyperNodeJson implements HyperNode
                     Object y = ((HGValueLink)x).getValue();
                     if (y instanceof Json)
                     {
-                        x = y;
-                        atomsTx.load(x, graph.getCache().get(handle.getPersistent()));
-                        if (((Json) y).isObject() && entityInterface.isEntity((Json)y))
-                            ((Json)y).set("hghandle", handle.getPersistent().toString());
+                        Json j = (Json)y;
+                        atomsTx.load(j, graph.getCache().get(handle.getPersistent()));
+                        if (j.isObject() && entityInterface.isEntity(j) && entityInterface.entityHandleProperty() != null)
+                            j.set(entityInterface.entityHandleProperty(), handle.getPersistent().toString());
+                        return (T)j;
                     }
                 }
                 return (T)x;
@@ -464,13 +464,14 @@ public class HyperNodeJson implements HyperNode
         HGHandle h = getHandle(j);
         if (h != null)
             return h;
-        if (j.isObject() && j.has("hghandle"))
+        if (j.isObject() && entityInterface.isEntity(j) && 
+        	entityInterface.entityHandleProperty() != null && j.has(entityInterface.entityHandleProperty()))
         {
             // We have several possible situations here: 
             // 1. the atom is not stored in the db at all => we have to add it
             // 2. the atom is stored already and it's different => we have to replace
             // 3. the atom is stored but it's the same extensionally => we just put in cache
-            h = graph.getHandleFactory().makeHandle(j.at("hghandle").asString());    
+            h = graph.getHandleFactory().makeHandle(j.at(entityInterface.entityHandleProperty()).asString());    
             Json existing = get(h);
             if (existing == null)
             	graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>(){
@@ -501,7 +502,7 @@ public class HyperNodeJson implements HyperNode
 
     private HGHandle addImpl(Json j)
     {
-    	HGHandle h = entityInterface.isEntity(j) ? addTxn(j) : assertTxn(j);
+    	HGHandle h = j.isObject() && entityInterface.isEntity(j) ? addTxn(j) : assertTxn(j);
         get(h); // ensure presence in local atomTx
         return h;
     }
@@ -539,8 +540,10 @@ public class HyperNodeJson implements HyperNode
         }
         else if (j.isObject())
         {
-            HGHandle thisHandle = j.has("hghandle") ? 
-                graph.getHandleFactory().makeHandle(j.atDel("hghandle").asString()) : null;
+            HGHandle thisHandle = null;
+            if (entityInterface.entityHandleProperty() != null && j.has(entityInterface.entityHandleProperty())) 
+                thisHandle = graph.getHandleFactory().makeHandle(
+                				j.atDel(entityInterface.entityHandleProperty()).asString());
             HGHandle [] A = new HGHandle[j.asJsonMap().size()];                    
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
@@ -552,7 +555,7 @@ public class HyperNodeJson implements HyperNode
                 HGHandle nameHandle = hg.findOne(graph, hg.eq(e.getKey()));
                 if (nameHandle == null)
                     nameHandle = graph.add(e.getKey());
-                else // if the name doesn't exist, the property is defintely not there, otherwise it might
+                else // if the name doesn't exist, the property is definitely not there, otherwise it might
                     propHandle = hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
                                                                hg.link(nameHandle,
                                                                        valueHandle)));
@@ -567,8 +570,8 @@ public class HyperNodeJson implements HyperNode
             else
             {
                 thisHandle = graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
-                if (entityInterface.attachHandleToEntities())
-                    j.set("hghandle", thisHandle.getPersistent().toString());
+                if (entityInterface.entityHandleProperty() != null)
+                    j.set(entityInterface.entityHandleProperty(), thisHandle.getPersistent().toString());
             }
             return thisHandle;
         }
@@ -608,7 +611,7 @@ public class HyperNodeJson implements HyperNode
             for (int i = 0; i < A.length; i++)
             {
                 Json ati = j.at(i);
-                if (entityInterface.isEntity(ati))
+                if (ati.isObject() && entityInterface.isEntity(ati))
                     throw new JsonNodeException("Trying to store entity/mutable object at index " + i + 
                                                 ", from Json array.", j);
                 HGHandle x = match(ati, true);
@@ -626,7 +629,7 @@ public class HyperNodeJson implements HyperNode
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
             {
-                if (entityInterface.isEntity(e.getValue()))
+                if (e.getValue().isObject() && entityInterface.isEntity(e.getValue()))
                     throw new JsonNodeException("Trying to store entity/mutable object at property " + e.getKey() + 
                                             ", from Json array.", j);
                 HGHandle valueHandle = match(e.getValue(), true);
@@ -724,9 +727,9 @@ public class HyperNodeJson implements HyperNode
                 {
                     // if the object has a handle already, we recursively update/replace
                     // otherwise we assert it.
-                    if (el.has("hghandle"))
+                    if (entityInterface.entityHandleProperty() != null && el.has(entityInterface.entityHandleProperty()))
                     {
-                        targets[i] = graph.getHandleFactory().makeHandle(el.at("hghandle").asString());
+                        targets[i] = graph.getHandleFactory().makeHandle(el.at(entityInterface.entityHandleProperty()).asString());
                         replace(targets[i], el, JsonTypeSchema.objectTypeHandle);
                     }
                     else
@@ -770,9 +773,9 @@ public class HyperNodeJson implements HyperNode
             }
             else
             {
-                if (el.has("hghandle"))
+                if (entityInterface.entityHandleProperty() != null && el.has(entityInterface.entityHandleProperty()))
                 {
-                    valueHandle = graph.getHandleFactory().makeHandle(el.at("hghandle").asString());
+                    valueHandle = graph.getHandleFactory().makeHandle(el.at(entityInterface.entityHandleProperty()).asString());
                     replace(valueHandle, el, JsonTypeSchema.objectTypeHandle);
                 }
                 else if (valueMap.containsKey(e.getKey()))

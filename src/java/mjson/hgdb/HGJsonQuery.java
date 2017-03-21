@@ -1,6 +1,7 @@
 package mjson.hgdb;
 
 import java.util.Collection;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -181,7 +182,7 @@ class HGJsonQuery
                 if (e.getValue().isString())
                     keywords = e.getValue().asString().split("[ \t,]+");
                 else if (e.getValue().isArray())
-                    keywords = (String[])((List)e.getValue().getValue()).toArray(new String[0]);
+                    keywords = (String[])((List<String>)e.getValue().getValue()).toArray(new String[0]);
                 if (keywords.length > 0)
                     S.add(new KeywordMatch(name.substring(0, at + 1), keywords, false));
             }
@@ -227,7 +228,16 @@ class HGJsonQuery
             else
             {
             	HGHandle matchedValue = node.match(e.getValue(), exact);
-            	propHandle = node.findProperty(e.getKey(), matchedValue);
+            	if (matchedValue != null)
+            	{
+	            	propHandle = node.findProperty(e.getKey(), matchedValue);
+	            	if (propHandle == null)
+	            	{
+	            		Json maybeEntity = node.get(matchedValue);
+	            		if (node.getEntityInterface().isEntity(maybeEntity)) // entities are be stored with their string handles 
+	            			propHandle = node.findProperty(e.getKey(), matchedValue.toString());
+	            	}
+            	}
             }
             if (propHandle == null)
             {

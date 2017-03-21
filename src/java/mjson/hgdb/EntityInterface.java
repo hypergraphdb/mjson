@@ -23,11 +23,12 @@ import org.hypergraphdb.HGHandle;
 public interface EntityInterface
 {
     /**
-     * <p>Return true if the JSON <code>element</code> represents a mutable entity.</p>
-     * @param element The JSON element to test.
-     *
+     * <p>Return true if the JSON <code>object</code> represents a mutable entity.</p>
+     * 
+     * @param element The JSON object to test. The caller guarantees that the parameter
+     * is in fact a JSON object.
      */
-    boolean isEntity(Json element);
+    boolean isEntity(Json objectElement);
     
     /**
      * <p>Lookup entity by value. When a JSON element is an entity coming from 
@@ -48,13 +49,11 @@ public interface EntityInterface
     HGHandle lookupEntity(HyperNodeJson node, Json entity);
 
     /**
-     * <p>Return true if the data store should add a <code>hghandle</code> property 
-     * to each entity object and <code>false</code> otherwise. The property will be
-     * set to the HyperGraphDB handle of the entity. This is meaningful only for
-     * JSON objects of course. Arrays, primitive types and null won't
+     * <p>Return the name of the JSON property entity where to store the handle of entities
+     *  or <code>null</code> if the handle is not going to be stored in entities.</p>
      */
-    boolean attachHandleToEntities();
-
+    String entityHandleProperty();       
+    
     /**
      * <p>Return true if the data store should permit that mutable entities be nested 
      * inside what would otherwise be an immutable value. Return false otherwise.</p>
