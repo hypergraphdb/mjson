@@ -9,8 +9,6 @@ import java.util.concurrent.Callable;
 
 import mjson.Json;
 import mjson.hgdb.querying.CrossProductResultSet;
-import mjson.hgdb.querying.QueryHelp;
-
 import org.hypergraphdb.HGException;
 import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGQuery;
@@ -155,12 +153,12 @@ public class HyperNodeJson implements HyperNode
     {
     	HGHandle h = findName.var("name", namePattern).findOne();	
     	if (h == null)
-    		return QueryHelp.empty();
+    		return HGJsonQuery.empty();
     	HGSearchResult<HGHandle> names = new HandleArrayResultSet(new HGHandle[] { h } );
     	HGSearchResult<HGHandle> values = this.find(Json.make(valuePattern));
     	CrossProductResultSet<HGHandle> namesCrossValues = new CrossProductResultSet<HGHandle>(names, values);    	
     	// Query a JSON property based on a cross-product result of name, value pair.    	
-    	return QueryHelp.pipeCrossProductToCompiledQuery(namesCrossValues, findProperty, "name", "value");
+    	return HGJsonQuery.pipeCrossProductToCompiledQuery(namesCrossValues, findProperty, "name", "value");
     }
     
     public HGHandle findProperty(String name, Object value)

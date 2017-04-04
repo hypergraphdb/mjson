@@ -1,5 +1,6 @@
 package mjson.hgdb;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,15 +11,17 @@ import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
 import org.hypergraphdb.HGHandle;
+import org.hypergraphdb.HGQuery;
+import org.hypergraphdb.HGRandomAccessResult;
 import org.hypergraphdb.HGSearchResult;
 import org.hypergraphdb.query.impl.FilteredResultSet;
+import org.hypergraphdb.query.impl.KeyBasedQuery;
 import org.hypergraphdb.query.impl.PipedResult;
 import org.hypergraphdb.util.HGUtils;
 import org.hypergraphdb.util.Mapping;
 
 import mjson.Json;
 import mjson.hgdb.querying.CrossProductResultSet;
-import mjson.hgdb.querying.QueryHelp;
 
 /**
  * <p>
@@ -223,7 +226,7 @@ class HGJsonQuery
         int i = 0;
         for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
         {
-        	for (JsonProperty prop : QueryHelp.findAllProperties(node, e.getKey(), e.getValue()))
+        	for (JsonProperty prop : findAllProperties(node, e.getKey(), e.getValue()))
         		System.out.println(node.get(prop.getName()) + " = " + node.get(prop.getValue()));
         	propertyCandidates[i] = node.findPropertyPattern(e.getKey(), e.getValue());
         	if (!propertyCandidates[i].hasNext())
@@ -239,7 +242,7 @@ class HGJsonQuery
         {
             HGSearchResult<HGHandle> rs = new PipedResult<List<HGHandle>, HGHandle>(
             	new CrossProductResultSet<HGHandle>(propertyCandidates),
-            	new QueryHelp.AbstractKeyBasedQuery<List<HGHandle>, HGHandle>()
+            	new AbstractKeyBasedQuery<List<HGHandle>, HGHandle>()
             	{
         			public HGSearchResult<HGHandle> execute()
         			{
@@ -259,4 +262,101 @@ class HGJsonQuery
             return (HGSearchResult<HGHandle>) HGSearchResult.EMPTY;
         
     }
+    
+	@SuppressWarnings("unchecked")
+	public static <T> HGRandomAccessResult<T> empty()
+	{
+		return (HGRandomAccessResult<T>) HGSearchResult.EMPTY;
+	}
+
+	public static <T> HGSearchResult<T> pipeCrossProductToCompiledQuery(
+			final CrossProductResultSet<T> crossProduct,
+			final HGQuery<T> compiledQuery, final String... varnames)
+	{
+		KeyBasedQuery<List<T>, T> propQuery = new KeyBasedQuery<List<T>, T>()
+		{
+			List<T> key = null;
+
+			public void setKey(List<T> key)
+			{
+				this.key = key;
+			}
+
+			@Override
+			public List<T> getKey()
+			{
+				return this.key;
+			}
+
+			@Override
+			public HGSearchResult<T> execute()
+			{
+				for (int i = 0; i < varnames.length; i++)
+					compiledQuery.var(varnames[i], key.get(i));
+				return compiledQuery.execute();
+			}
+		};
+		return new PipedResult<List<T>, T>(crossProduct, propQuery, true);
+	}
+
+	public static <T> HGSearchResult<T> pipeCrossProductToQuery(final CrossProductResultSet<T> crossProduct,
+																final HGQuery<T> compiledQuery, 
+																final String... varnames)
+	{
+		KeyBasedQuery<List<T>, T> propQuery = new KeyBasedQuery<List<T>, T>()
+		{
+			List<T> key = null;
+
+			public void setKey(List<T> key)
+			{
+				this.key = key;
+			}
+
+			@Override
+			public List<T> getKey()
+			{
+				return this.key;
+			}
+
+			@Override
+			public HGSearchResult<T> execute()
+			{
+				for (int i = 0; i < varnames.length; i++)
+					compiledQuery.var(varnames[i], key.get(0));
+				return compiledQuery.execute();
+			}
+		};
+		return new PipedResult<List<T>, T>(crossProduct, propQuery, true);
+	}
+
+	public static abstract class AbstractKeyBasedQuery<Key, Value> extends KeyBasedQuery<Key, Value>
+	{
+		Key key = null;
+
+		public void setKey(Key key)
+		{
+			this.key = key;
+		}
+
+		@Override
+		public Key getKey()
+		{
+			return this.key;
+		}
+	};	
+	
+	public static List<JsonProperty> findAllProperties(HyperNodeJson node, String namePattern, Object valuePattern)
+	{
+		List<JsonProperty> L = new ArrayList<JsonProperty>();
+		try (HGSearchResult<HGHandle> rs = node.findPropertyPattern(namePattern, valuePattern))
+		{
+			while (rs.hasNext())
+			{
+				JsonProperty prop = node.get(rs.next());
+				L.add(prop);
+			}
+		}
+		return L;
+	}
+    
 }
