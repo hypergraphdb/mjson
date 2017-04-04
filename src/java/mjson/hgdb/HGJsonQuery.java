@@ -1,7 +1,6 @@
 package mjson.hgdb;
 
 import java.util.Collection;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -12,12 +11,14 @@ import java.util.regex.Pattern;
 
 import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGSearchResult;
-import org.hypergraphdb.HGQuery.hg;
-import org.hypergraphdb.query.And;
 import org.hypergraphdb.query.impl.FilteredResultSet;
+import org.hypergraphdb.query.impl.PipedResult;
+import org.hypergraphdb.util.HGUtils;
 import org.hypergraphdb.util.Mapping;
 
 import mjson.Json;
+import mjson.hgdb.querying.CrossProductResultSet;
+import mjson.hgdb.querying.QueryHelp;
 
 /**
  * <p>
@@ -218,40 +219,37 @@ class HGJsonQuery
                 }
             };
         }
-        HGHandle [] A = new HGHandle[pattern.asJsonMap().size()];
+        HGSearchResult<HGHandle> [] propertyCandidates = new HGSearchResult[pattern.asJsonMap().size()];
         int i = 0;
         for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
         {
-            HGHandle propHandle = null; 
-            if (!e.getValue().isObject())
-            	propHandle = node.findProperty(e.getKey(), e.getValue());
-            else
-            {
-            	HGHandle matchedValue = node.match(e.getValue(), exact);
-            	if (matchedValue != null)
-            	{
-	            	propHandle = node.findProperty(e.getKey(), matchedValue);
-	            	if (propHandle == null)
-	            	{
-	            		Json maybeEntity = node.get(matchedValue);
-	            		if (node.getEntityInterface().isEntity(maybeEntity)) // entities are be stored with their string handles 
-	            			propHandle = node.findProperty(e.getKey(), matchedValue.toString());
-	            	}
-            	}
-            }
-            if (propHandle == null)
-            {
-                A = null;
-                break;
-            }
-            A[i++] = propHandle;
+        	for (JsonProperty prop : QueryHelp.findAllProperties(node, e.getKey(), e.getValue()))
+        		System.out.println(node.get(prop.getName()) + " = " + node.get(prop.getValue()));
+        	propertyCandidates[i] = node.findPropertyPattern(e.getKey(), e.getValue());
+        	if (!propertyCandidates[i].hasNext())
+        	{
+        		for (int j = i; j >= 0; j--)
+        			HGUtils.closeNoException(propertyCandidates[j]);
+        		propertyCandidates = null;
+        		break;
+        	}
+        	i++;
         }
-        if (A != null)
+        if (propertyCandidates != null)        	
         {
-            And and = hg.and(hg.type(JsonTypeSchema.objectTypeHandle), hg.link(A));
-            if (exact) 
-                and.add(hg.arity(i));
-            HGSearchResult<HGHandle> rs = node.graph.find(and); 
+            HGSearchResult<HGHandle> rs = new PipedResult<List<HGHandle>, HGHandle>(
+            	new CrossProductResultSet<HGHandle>(propertyCandidates),
+            	new QueryHelp.AbstractKeyBasedQuery<List<HGHandle>, HGHandle>()
+            	{
+        			public HGSearchResult<HGHandle> execute()
+        			{
+        				return node.find(hg.and(hg.type(JsonTypeSchema.objectTypeHandle), hg.link(getKey()))); 
+        			} 
+            	},
+            	true
+            ); 
+            		
+//            		node.graph.find(and); 
             if (maps.isEmpty())
                 return rs;
             else

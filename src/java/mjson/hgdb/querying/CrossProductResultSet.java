@@ -75,6 +75,27 @@ public class CrossProductResultSet<T> implements HGSearchResult<List<T>>
 		}
 		return false;		
 	}
+
+	private boolean moveBackward(CursorState<T> cursor)
+	{
+		if (cursor.direction)
+		{
+			if (cursor.rs.hasPrev())
+			{
+				cursor.rs.prev();
+				return true;
+			}
+		}
+		else
+		{
+			if (cursor.rs.hasNext())
+			{
+				cursor.rs.next();
+				return true;
+			}
+		}
+		return false;		
+	}
 	
 	private void reverseDirection(int fromIndex)
 	{
@@ -124,9 +145,42 @@ public class CrossProductResultSet<T> implements HGSearchResult<List<T>>
 		}
 	}
 	
-	private void back()
+	private boolean back()
 	{
-		
+		if (current == null) // no prev if we haven't moved at all
+			return false;
+		else if (index == -1) // we've reached the end of the result set
+		{
+			index = components.length - 1;
+		}
+		while (index > -1)
+		{
+			CursorState<T> cursor = components[index];
+			if (moveBackward(cursor))
+			{
+				// if we are not moving the last set, this means we need to start all
+				// over from the last and enumerate all combination again before we
+				// move onto the next element of the current set
+				if (index < components.length - 1) 
+				{
+					reverseDirection(index + 1);
+					index = components.length - 1;
+				}
+				break;
+			}
+			else
+				index--;
+		}
+		if (index > -1)
+		{
+			prev = makeCurrent();
+			return true;
+		}
+		else
+		{
+			prev = null;
+			return false;
+		}		
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -155,6 +209,7 @@ public class CrossProductResultSet<T> implements HGSearchResult<List<T>>
 	{
 		if (!hasPrev())
 			throw new NoSuchElementException();
+		next = current;
 		current = prev;
 		back();
 		return current;

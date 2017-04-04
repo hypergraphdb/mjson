@@ -1,0 +1,25 @@
+[
+  {
+    "hghandle":"640ce985-25fd-454b-a882-bbb3ce59ab47",
+    "entity":"person",
+    "firstName": "Joe",
+    "lastName": "Bonny"
+  },
+  {
+    "hghandle":"c5125932-aa49-45e7-b328-718281ecb5bd",
+  	"entity":"company",  	
+  	"name":"Famous Potatos, Inc.",
+  	"shares" : 1000000
+  },
+  {    
+	"entity": "store",
+	"company": "hg:c5125932-aa49-45e7-b328-718281ecb5bd",
+	"active": false
+  },
+  {
+	"entity": "store",
+	"company": "hg:c5125932-aa49-45e7-b328-718281ecb5bd",
+	"active": true,
+	"manager":"hg:640ce985-25fd-454b-a882-bbb3ce59ab47"
+  }
+]

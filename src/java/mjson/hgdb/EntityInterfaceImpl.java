@@ -13,6 +13,7 @@ import org.hypergraphdb.HGSearchResult;
  */
 public class EntityInterfaceImpl implements EntityInterface
 {
+	private String referencePrefix = "hg:";
     private String handleProperty = "hghandle";
     private String typeProperty = "entity";
     private boolean allowEntitiesInValuesFlag = false;
@@ -33,7 +34,24 @@ public class EntityInterfaceImpl implements EntityInterface
         return this;
     }
 
-    public String entityHandleProperty()
+    
+    @Override
+	public Json createEntityReference(HyperNodeJson node, HGHandle handle)
+    {
+    	return Json.factory().string(referencePrefix + handle.getPersistent().toString());
+	}
+
+	@Override
+	public HGHandle entityReferenceToHandle(HyperNodeJson node, Json maybeEntityReference) 
+	{
+		if (maybeEntityReference.isString() && maybeEntityReference.asString().startsWith(referencePrefix))
+			return node.graph.getHandleFactory().makeHandle(
+					maybeEntityReference.asString().substring(referencePrefix.length()));
+		else
+			return null;
+	}
+
+	public String entityHandleProperty()
     {
         return handleProperty;
     }
@@ -71,6 +89,17 @@ public class EntityInterfaceImpl implements EntityInterface
         return this;
     }
 
+    public String referencePrefix()
+    {
+    	return this.referencePrefix;
+    }
+    
+    public EntityInterfaceImpl referencePrefix(String referencePrefix)
+    {
+    	this.referencePrefix = referencePrefix;
+    	return this;
+    }
+    
     public HGHandle lookupEntity(HyperNodeJson node, Json entity)
     {
         if (primaryKey != null && entity.has("primaryKey"))

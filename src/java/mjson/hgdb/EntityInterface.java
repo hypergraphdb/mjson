@@ -31,8 +31,34 @@ public interface EntityInterface
     boolean isEntity(Json objectElement);
     
     /**
+     * <p>
+     * Given a JSON entity, create an reference to it as a JSON value. The exact format
+     * of the reference is implementation depend and it could be a primitive or a compound
+     * JSON element so long as the corresponding {@link #entityReferenceToHandle(Json)}
+     * method can take this value and product the HyperGraphDB handle of the entity. 
+     * </p>
+     * @param node
+     * @param entity
+     * @return
+     */
+    Json createEntityReference(HyperNodeJson node, HGHandle handle);
+    
+    /**
+     * <p>
+     * Check if a given JSON element represents an entity reference and if so return
+     * the <code>HGHandle</code>. Otherwise, return <code>null</code>.
+     * </p>
+     * 
+     * @param maybeEntityReference The JSON element that potentially represents
+     * an entity reference (e.g. a string representation of a HGHandle, or a URI
+     * of some sort)
+     * @return The entity reference, i.e. the HyperGraphDB handle of the entity.
+     */
+    HGHandle entityReferenceToHandle(HyperNodeJson node, Json maybeEntityReference);
+    
+    /**
      * <p>Lookup entity by value. When a JSON element is an entity coming from 
-     * the outside, it may not have a <code>hghandle</code> property to identity it.
+     * the outside, it may not have a <code>hghandle</code> property to identify it.
      * Yet, it may be already stored in the data store and identifiable by some
      * other means (e.g. a "primary key"). An implementation can provide a lookup
      * function to find the entity and avoid inserting a duplicate record.</p>

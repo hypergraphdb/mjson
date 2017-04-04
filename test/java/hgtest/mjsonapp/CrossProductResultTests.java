@@ -20,6 +20,7 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import hgtest.T;
 import mjson.hgdb.querying.CrossProductResultSet;
 
 public class CrossProductResultTests
@@ -54,7 +55,7 @@ public class CrossProductResultTests
 	}
 	
 	@Test
-	@Ignore
+	//@Ignore
 	public void testEmptyProduct()
 	{
 		try (CrossProductResultSet<HGHandle> rs = new CrossProductResultSet<HGHandle>(
@@ -69,7 +70,7 @@ public class CrossProductResultTests
 	}
 	
 	@Test
-	@Ignore
+	//@Ignore
 	public void testSingleResult()
 	{
 		final HashSet<HGHandle> atoms = new HashSet<HGHandle>(); 
@@ -128,6 +129,8 @@ public class CrossProductResultTests
 		for (HGHandle sh : strings)
 			for (HGHandle dh : doubles)
 				tuples.add(Lists.newArrayList(sh, dh));
+		Set<List<HGHandle>> tuples2 = new HashSet<List<HGHandle>>();
+		tuples2.addAll(tuples);
 		try (CrossProductResultSet<HGHandle> rs = new CrossProductResultSet<HGHandle>(
 				graph.find(hg.type(String.class)),
 				graph.find(hg.type(Double.class))
@@ -142,12 +145,83 @@ public class CrossProductResultTests
 					System.out.println(toString(rs.current()));
 				}
 				Assert.assertEquals(0, tuples.size());
+				
+				tuples.add(rs.current()); // "first previous"
+				
+				while (rs.hasPrev())
+				{
+					tuples.add(rs.prev());
+					System.out.println(toString(rs.current()));
+				}
+				
+				Assert.assertEquals(tuples2, tuples);
 			}
 	}
 
 	@Test
 	public void testManyProduct()
 	{
+		// First, populate some data for two different types
+		graph.getTransactionManager().transact(new Callable<Object>() {
+			public Object call()
+			{
+				for (int i = 0; i < 4; i++)
+					graph.add("value " + i);
+				for (int i = 0; i < 7; i++)
+					graph.add(new Double(Math.random()));
+				for (int i = 0; i < 3; i++)
+					graph.add(new Integer(T.random(Integer.MAX_VALUE)));
+				return null;
+			}
+		});
 		
+		// This should be empty because we have no floats in the DB.
+		try (CrossProductResultSet<HGHandle> rs = new CrossProductResultSet<HGHandle>(
+				graph.find(hg.type(String.class)),
+				graph.find(hg.type(Integer.class)),
+				graph.find(hg.type(Float.class)),
+				graph.find(hg.type(Double.class))
+			))
+			{
+				Assert.assertFalse(rs.hasNext());
+				Assert.assertFalse(rs.hasPrev());
+			}
+		
+		Set<List<HGHandle>> tuples = new HashSet<List<HGHandle>>();
+		List<HGHandle> strings = graph.findAll(hg.type(String.class));
+		List<HGHandle> integers = graph.findAll(hg.type(Integer.class));
+		List<HGHandle> doubles = graph.findAll(hg.type(Double.class));
+		for (HGHandle sh : strings)
+			for (HGHandle dh : doubles)
+				for (HGHandle ih : integers)
+					tuples.add(Lists.newArrayList(sh, dh, ih));
+		Set<List<HGHandle>> tuples2 = new HashSet<List<HGHandle>>();
+		tuples2.addAll(tuples);
+		try (CrossProductResultSet<HGHandle> rs = new CrossProductResultSet<HGHandle>(
+				graph.find(hg.type(String.class)),
+				graph.find(hg.type(Double.class)),
+				graph.find(hg.type(Integer.class))
+			))
+			{
+//				Assert.assertFalse(rs.hasNext());
+//				Assert.assertFalse(rs.hasPrev());
+				while (rs.hasNext())
+				{					
+					Assert.assertTrue(tuples.contains(rs.next()));
+					tuples.remove(rs.current());
+					System.out.println(toString(rs.current()));
+				}
+				Assert.assertEquals(0, tuples.size());
+				
+				tuples.add(rs.current()); // "first previous"
+				
+				while (rs.hasPrev())
+				{
+					tuples.add(rs.prev());
+					System.out.println(toString(rs.current()));
+				}
+				
+				Assert.assertEquals(tuples2, tuples);
+			}		
 	}
 }
