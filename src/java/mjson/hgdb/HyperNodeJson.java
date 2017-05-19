@@ -74,6 +74,8 @@ public class HyperNodeJson implements HyperNode
         					hg.eq(hg.var("value"))));
         ObjectTypeJson objectType = graph.get(JsonTypeSchema.objectTypeHandle);
         objectType.setHyperNodeJson(this);
+        ArrayTypeJson arrayType = graph.get(JsonTypeSchema.arrayTypeHandle);
+        arrayType.setHyperNodeJson(this);
     }
     
     /**
@@ -224,7 +226,8 @@ public class HyperNodeJson implements HyperNode
      * @param exact Whether this should be an exact or approximate match. Approximate means only
      * some of the properties must be there. This parameter applies recursively
      * to nested structures. Note that arrays are always matched exactly.
-     * @return
+     * @return The <code>HGHandle</code> of the first matched element or <code>null</code>
+     * if none was found.
      */
     public HGHandle match(Json j, boolean exact)
     {
@@ -298,7 +301,10 @@ public class HyperNodeJson implements HyperNode
                 A[i] = x;
             }
             if (A != null)
-                return graph.find(hg.and(hg.type(JsonTypeSchema.arrayTypeHandle),hg.orderedLink(A)));
+            	if (exact)
+            		return graph.find(hg.and(hg.type(JsonTypeSchema.arrayTypeHandle), hg.orderedLink(A), hg.arity(A.length)));
+            	else
+            		return graph.find(hg.and(hg.type(JsonTypeSchema.arrayTypeHandle),hg.orderedLink(A)));
             else
                 return (HGSearchResult<HGHandle>) HGSearchResult.EMPTY;
         }

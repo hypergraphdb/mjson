@@ -1,0 +1,356 @@
+[
+  [
+	  {
+	    "color": "red",
+	    "value": "#f00"
+	  },
+	  {
+	    "color": "green",
+	    "value": "#0f0"
+	  },
+	  {
+	    "color": "blue",
+	    "value": "#00f"
+	  },
+	  {
+	    "color": "cyan",
+	    "value": "#0ff"
+	  },
+	  {
+	    "color": "magenta",
+	    "value": "#f0f"
+	  },
+	  {
+	    "color": "yellow",
+	    "value": "#ff0"
+	  },
+	  {
+	    "color": "black",
+	    "value": "#000"
+	  }
+  ],
+  [
+   {
+    "_id": "58e9f786e3c857aca70853ea",
+    "index": 0,
+    "entity": "person",
+    "hghandle": "379e63b3-299e-4f5e-999b-be64473ca6f8",
+    "isActive": false,
+    "balance": "$3,812.26",
+    "picture": "http://placehold.it/32x32",
+    "age": 24,
+    "eyeColor": "brown",
+    "name": "Sheppard Franklin",
+    "gender": "male",
+    "company": "EQUITAX",
+    "email": "sheppardfranklin@equitax.com",
+    "phone": "+1 (960) 577-2735",
+    "address": "942 Lawrence Avenue, Brooktrails, California, 4244",
+    "about": "Fugiat veniam nisi veniam Lorem ullamco qui pariatur sit. Irure veniam exercitation aliquip incididunt anim. Laborum aute anim amet adipisicing culpa non voluptate occaecat esse.\r\n",
+    "registered": "2015-08-03T06:56:51 +04:00",
+    "latitude": 56.63151,
+    "longitude": 76.589883,
+    "tags": [
+      "nulla",
+      "veniam",
+      "adipisicing",
+      "eu",
+      "excepteur",
+      "commodo",
+      "anim"
+    ],
+    "friends": [
+      {
+        "id": 0,
+        "name": "Sylvia Allison"
+      },
+      {
+        "id": 1,
+        "name": "Rhea Greer"
+      },
+      {
+        "id": 2,
+        "name": "Hutchinson Stein"
+      }
+    ],
+    "greeting": "Hello, Sheppard Franklin! You have 3 unread messages.",
+    "favoriteFruit": "banana"
+  },
+  {
+    "_id": "58e9f7869a6ae0f2ba635f2f",
+    "index": 1,
+    "entity": "person",
+    "hghandle": "79a9ccf5-4ef8-4625-8fd3-ce5785a0ea52",
+    "isActive": false,
+    "balance": "$2,437.15",
+    "picture": "http://placehold.it/32x32",
+    "age": 25,
+    "eyeColor": "green",
+    "name": "Terri Lara",
+    "gender": "female",
+    "company": "ZOSIS",
+    "email": "terrilara@zosis.com",
+    "phone": "+1 (805) 600-2771",
+    "address": "996 Madeline Court, Cataract, Virginia, 1783",
+    "about": "Minim labore minim deserunt qui sunt officia ex proident. Laboris Lorem eiusmod amet occaecat quis proident id. Voluptate do aliqua aute officia ut aliquip id pariatur Lorem magna. Culpa dolore excepteur officia ad ut voluptate laborum.\r\n",
+    "registered": "2016-03-11T06:08:19 +05:00",
+    "latitude": 50.056948,
+    "longitude": -8.65441,
+    "tags": [
+      "eu",
+      "qui",
+      "reprehenderit",
+      "adipisicing",
+      "labore",
+      "officia",
+      "labore"
+    ],
+    "friends": [
+      {
+        "id": 0,
+        "name": "Muriel Atkins"
+      },
+      {
+        "id": 1,
+        "name": "Rojas Chen"
+      },
+      {
+        "id": 2,
+        "name": "Katharine Caldwell"
+      }
+    ],
+    "greeting": "Hello, Terri Lara! You have 7 unread messages.",
+    "favoriteFruit": "banana"
+  },
+  {
+    "_id": "58e9f786a20da1b4f8e48c60",
+    "index": 2,
+    "entity": "person",
+    "hghandle": "b54cb5a2-7411-4965-bd74-527234aeaa51",
+    "isActive": false,
+    "balance": "$3,764.29",
+    "picture": "http://placehold.it/32x32",
+    "age": 33,
+    "eyeColor": "brown",
+    "name": "Valenzuela Gibbs",
+    "gender": "male",
+    "company": "ZOUNDS",
+    "email": "valenzuelagibbs@zounds.com",
+    "phone": "+1 (989) 531-2831",
+    "address": "210 Ovington Court, Reno, Rhode Island, 6128",
+    "about": "Et nulla duis labore minim laboris aliquip duis dolore fugiat. Magna ipsum amet labore cupidatat tempor magna. Sint deserunt in excepteur labore. Sint ea dolor nostrud aute nostrud eu. Irure in ut est consectetur officia minim nulla proident culpa tempor tempor aliqua fugiat. Dolor ad dolor est aute laboris in non ex fugiat Lorem exercitation aliquip qui eiusmod.\r\n",
+    "registered": "2016-07-24T12:07:53 +04:00",
+    "latitude": -55.183073,
+    "longitude": 122.190261,
+    "tags": [
+      "tempor",
+      "est",
+      "incididunt",
+      "id",
+      "voluptate",
+      "dolor",
+      "tempor"
+    ],
+    "friends": [
+      {
+        "id": 0,
+        "name": "Bray Franks"
+      },
+      {
+        "id": 1,
+        "name": "Bernice Merrill"
+      },
+      {
+        "id": 2,
+        "name": "Georgia Chang"
+      }
+    ],
+    "greeting": "Hello, Valenzuela Gibbs! You have 1 unread messages.",
+    "favoriteFruit": "banana"
+  },
+  {
+    "_id": "58e9f786dc3244608f679d21",
+    "index": 3,
+    "entity": "person",
+    "hghandle": "0d9c26bc-d852-4f76-abbf-0f48eec92af4",
+    "isActive": false,
+    "balance": "$1,924.71",
+    "picture": "http://placehold.it/32x32",
+    "age": 22,
+    "eyeColor": "brown",
+    "name": "Mara Brooks",
+    "gender": "female",
+    "company": "SLAX",
+    "email": "marabrooks@slax.com",
+    "phone": "+1 (893) 557-2995",
+    "address": "853 Clinton Avenue, Saddlebrooke, Virgin Islands, 3135",
+    "about": "Excepteur est in cillum fugiat velit ut consequat eu dolore. Aute velit culpa ullamco laboris aliqua duis velit est sunt. Laborum in ipsum esse id. Minim amet qui commodo sit anim cupidatat ut. Cillum cillum qui elit nisi nostrud deserunt velit velit pariatur dolor ullamco minim ea. Labore cupidatat laborum exercitation ipsum ullamco esse est.\r\n",
+    "registered": "2015-11-23T03:07:19 +05:00",
+    "latitude": 33.569937,
+    "longitude": -13.697189,
+    "tags": [
+      "ipsum",
+      "sint",
+      "velit",
+      "cupidatat",
+      "eu",
+      "sint",
+      "officia"
+    ],
+    "friends": [
+      {
+        "id": 0,
+        "name": "Elnora Turner"
+      },
+      {
+        "id": 1,
+        "name": "Armstrong Case"
+      },
+      {
+        "id": 2,
+        "name": "Summer Vance"
+      }
+    ],
+    "greeting": "Hello, Mara Brooks! You have 6 unread messages.",
+    "favoriteFruit": "banana"
+  },
+  {
+    "_id": "58e9f7860b0ecdbe20c66b85",
+    "index": 4,
+    "entity": "person",
+    "hghandle": "31b7a618-57f1-44d1-83f9-35994940c8a0",
+    "isActive": false,
+    "balance": "$1,155.71",
+    "picture": "http://placehold.it/32x32",
+    "age": 20,
+    "eyeColor": "brown",
+    "name": "Wendy Guerra",
+    "gender": "female",
+    "company": "PLASMOS",
+    "email": "wendyguerra@plasmos.com",
+    "phone": "+1 (969) 442-3098",
+    "address": "511 Seagate Avenue, Makena, Texas, 2604",
+    "about": "Dolore sunt minim enim exercitation in ipsum aliquip aliquip Lorem labore nostrud. Ullamco nulla adipisicing sint pariatur adipisicing nostrud incididunt enim cillum qui. Et nisi duis voluptate excepteur.\r\n",
+    "registered": "2014-01-02T01:18:41 +05:00",
+    "latitude": 60.95549,
+    "longitude": 116.298478,
+    "tags": [
+      "sunt",
+      "reprehenderit",
+      "pariatur",
+      "in",
+      "elit",
+      "excepteur",
+      "fugiat"
+    ],
+    "friends": [
+      {
+        "id": 0,
+        "name": "Meagan Bright"
+      },
+      {
+        "id": 1,
+        "name": "Vanessa Hurley"
+      },
+      {
+        "id": 2,
+        "name": "Kline Camacho"
+      }
+    ],
+    "greeting": "Hello, Wendy Guerra! You have 5 unread messages.",
+    "favoriteFruit": "apple"
+  },
+  {
+    "_id": "58e9f786ca5a3ffabb768f73",
+    "index": 5,
+    "entity": "person",
+    "hghandle": "26ac4136-cd25-4bdd-a6ce-e6163425c17a",
+    "isActive": false,
+    "balance": "$1,867.25",
+    "picture": "http://placehold.it/32x32",
+    "age": 23,
+    "eyeColor": "blue",
+    "name": "Baxter Whitney",
+    "gender": "male",
+    "company": "RAMEON",
+    "email": "baxterwhitney@rameon.com",
+    "phone": "+1 (859) 511-3507",
+    "address": "109 Conduit Boulevard, Hegins, Connecticut, 2247",
+    "about": "Aliqua amet sit anim ut occaecat anim eu do cillum amet do nulla. In dolore consequat ut nostrud do est reprehenderit nulla sint exercitation. Culpa ipsum dolor quis ea nisi amet elit aliquip.\r\n",
+    "registered": "2015-07-21T01:36:49 +04:00",
+    "latitude": 8.318943,
+    "longitude": 89.462602,
+    "tags": [
+      "minim",
+      "sint",
+      "excepteur",
+      "duis",
+      "ullamco",
+      "ea",
+      "aliqua"
+    ],
+    "friends": [
+      {
+        "id": 0,
+        "name": "Marlene Oneal"
+      },
+      {
+        "id": 1,
+        "name": "Brenda Pittman"
+      },
+      {
+        "id": 2,
+        "name": "Anne Russo"
+      }
+    ],
+    "greeting": "Hello, Baxter Whitney! You have 10 unread messages.",
+    "favoriteFruit": "banana"
+  },
+  {
+    "_id": "58e9f7861fe0327107ade406",
+    "index": 6,
+    "entity": "person",
+    "hghandle": "0024a273-e5e3-471f-bfd1-2121da510b19",
+    "isActive": true,
+    "balance": "$2,763.78",
+    "picture": "http://placehold.it/32x32",
+    "age": 29,
+    "eyeColor": "blue",
+    "name": "Alisha Patel",
+    "gender": "female",
+    "company": "ZILLIDIUM",
+    "email": "alishapatel@zillidium.com",
+    "phone": "+1 (814) 414-2141",
+    "address": "586 Grove Place, Ronco, West Virginia, 833",
+    "about": "Eu do do anim nisi amet anim. Dolore duis aliqua eiusmod proident. Eiusmod ex occaecat aliquip excepteur. Duis ullamco sint sint ea. Irure Lorem voluptate nisi adipisicing voluptate incididunt non est irure ex.\r\n",
+    "registered": "2014-05-12T04:47:36 +04:00",
+    "latitude": 78.846994,
+    "longitude": -167.875825,
+    "tags": [
+      "aute",
+      "eu",
+      "est",
+      "quis",
+      "laborum",
+      "sunt",
+      "quis"
+    ],
+    "friends": [
+      {
+        "id": 0,
+        "name": "Hickman Carroll"
+      },
+      {
+        "id": 1,
+        "name": "Burt Peterson"
+      },
+      {
+        "id": 2,
+        "name": "Milagros Wyatt"
+      }
+    ],
+    "greeting": "Hello, Alisha Patel! You have 9 unread messages.",
+    "favoriteFruit": "apple"
+   }  
+  ]  
+]

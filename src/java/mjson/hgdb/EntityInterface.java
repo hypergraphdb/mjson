@@ -84,11 +84,27 @@ public interface EntityInterface
      * <p>Return true if the data store should permit that mutable entities be nested 
      * inside what would otherwise be an immutable value. Return false otherwise.</p>
      * <p>
-     * By default, the database will throw an exception if you try to add a top-level 
+     * If true, the database will throw an exception if you try to add a top-level 
      * <code>Json</code> that is not an entity, and is therefore immutable, but it contains
      * a nested element (e.g. a property or an array element) that is itself an entity.
-     * Return true from this method to change that behavior and by more permissive.
+     * </p>
+     * 
+     * <p>
+     * Otherwise, value can contain nested entities and are still considered immutable 
+     * as long as the reference to the entity remains the same.
      * </p>
      */
     boolean allowEntitiesInImmutableValues();
+    
+    /**
+     * <p>
+     * Allow end-user to configure whether the database should accept mutable entities as
+     * components of immutable values. See comment on {@link #allowEntitiesInImmutableValues()}
+     * for more details. 
+     * </p>
+     * 
+     * @param entitiesInValues
+     * @return
+     */
+    EntityInterface allowEntitiesInImmutableValues(boolean entitiesInValues);
 }

@@ -19,6 +19,7 @@ import org.junit.Assert;
 
 import mjson.Json;
 import static mjson.Json.*;
+import static mjson.hgdb.Helpers.resolveEntities;
 import mjson.hgdb.HyperNodeJson;
 import mjson.hgdb.JsonTypeSchema;
 
@@ -27,6 +28,9 @@ import mjson.hgdb.JsonTypeSchema;
  * Tests for various query patterns. 
  * </p>
  *
+ * This is a good place to generate test data for JSON:
+ * http://www.json-generator.com/
+ * 
  * @author Borislav Iordanov
  *
  */
@@ -73,9 +77,11 @@ public class JsonQueryTests extends HGTestBase
         config.getTypeConfiguration().addSchema(new JsonTypeSchema());
         graph = HGEnvironment.get(getGraphLocation(), config);
         node = new HyperNodeJson(graph);        
+        node.getEntityInterface().allowEntitiesInImmutableValues(true);
         load_many("/hgtest/mjsonapp/primitives.json");
         load_many("/hgtest/mjsonapp/dataset1.json");
         load_one("/hgtest/mjsonapp/data1.json");
+        load_many("/hgtest/mjsonapp/arrays.json");
 	}
 	
 	@Test
@@ -126,7 +132,6 @@ public class JsonQueryTests extends HGTestBase
 	}
 
 	@Test
-//	@Ignore
 	public void testMatchEntity()
 	{
 		Json person = node.retrieve(object("entity", "person", "firstName", "Joe"));
@@ -137,19 +142,33 @@ public class JsonQueryTests extends HGTestBase
 		Assert.assertTrue(store.has("company"));
 		
 		Json L = node.getAll(object("entity", "store", "manager", object("firstName", "Joe")));
+    	L = resolveEntities(node, L);
+		Assert.assertTrue(L.at(0).at("manager").is("lastName", "Bonny"));
 		System.out.println(L);
 	}
 	
 	@Test
 	public void testMatchArray()
 	{
-		// TODO - define array query operators
+		Json arrayPattern = Json.array(
+			Json.object("color", "red", "value", "#f00"),
+			Json.object("color", "green", "value", "#0f0"));
+		Assert.assertNotNull(node.match(arrayPattern, false));
+		Assert.assertNull(node.match(arrayPattern, true));
 	}
 	
 	@Test
 	public void testMatchArrayPattern()
 	{
-		// TODO
+		Json person1 = Json.object(
+		    "gender", "male"
+		);
+		Json person2 = Json.object(
+			"balance", "$2,437.15"				
+		);
+		Json arrayPattern = Json.array(person1, person2);
+		Assert.assertNotNull(node.match(arrayPattern, false));
+//		Assert.assertNull(node.match(arrayPattern, true));		
 	}
 	
 	@Test
@@ -160,6 +179,8 @@ public class JsonQueryTests extends HGTestBase
 	
     public static void main(String[] argv)
     {
+    	Json A = Json.read(T.getResourceContents("/hgtest/mjsonapp/arrays.json"));
+    	/*
         JsonQueryTests test = new JsonQueryTests();
         try
         {
@@ -174,7 +195,7 @@ public class JsonQueryTests extends HGTestBase
         finally
         {
         	JsonStorageTests.tearDown();
-        }
+        } */
     }
 	
 }

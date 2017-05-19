@@ -49,7 +49,8 @@ public class ObjectTypeJson extends HGAtomTypeBase
             else
                 value = (Json)x;         
             if (value.isObject() && node.getEntityInterface().isEntity(value))
-                value.set("hghandle", prop.getValue().getPersistent().toString());
+            	value = node.getEntityInterface().createEntityReference(node, prop.getValue());
+                //value.set("hghandle", prop.getValue().getPersistent().toString());
             j.set(name, value);
         }
         return j;

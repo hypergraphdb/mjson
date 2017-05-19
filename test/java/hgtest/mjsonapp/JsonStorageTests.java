@@ -1,5 +1,6 @@
 package hgtest.mjsonapp;
 
+
 import java.util.List;
 
 import org.hypergraphdb.HGConfiguration;
@@ -10,33 +11,20 @@ import org.hypergraphdb.util.Mapping;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import hgtest.HGTestBase;
 import hgtest.T;
 import mjson.Json;
+import mjson.hgdb.EntityInterfaceImpl;
 import mjson.hgdb.HyperNodeJson;
 import mjson.hgdb.JsonTypeSchema;
+import static mjson.hgdb.Helpers.*;
 
 public class JsonStorageTests extends HGTestBase
 {
     static HyperNodeJson node;
-
-    Json traverse(Json j, Mapping<Json, Boolean> f)
-    {
-        if (!f.eval(j)) return j;
-        else if (j.isObject())
-        {
-            for (Json x : j.asJsonMap().values())
-                traverse(x, f);
-        }
-        else if (j.isArray())
-        {
-            for (Json x : j.asJsonList())
-                traverse(x, f);
-        }
-        return j;
-    }
 
     static class RemoveProp implements Mapping<Json, Boolean>
     {
@@ -141,6 +129,20 @@ public class JsonStorageTests extends HGTestBase
     }
 
     @Test
+    @Ignore
+    public void testAddCircular()
+    {
+    	Json ref1 = Json.object("n", 1);
+    	Json ref2 = Json.object("n", 2);
+    	ref1.set("ref", ref2);
+    	ref2.set("ref", ref1);
+    	HGHandle handle = node.add(ref1).getPersistent();
+    	reopen();
+    	Json ref1_back = node.get(handle);
+    	Assert.assertEquals(ref1, ref1_back);
+    }
+    
+    @Test
     public void testAddEntity()
     {
         // Adding an entity should create a new atom each time.
@@ -216,6 +218,19 @@ public class JsonStorageTests extends HGTestBase
     @Test
     public void testEntityInValue()
     {
+    	// In an "entity in value" situation, our entity interface is configured to allow
+    	// mutable entities into immutable values and we want to just store the reference
+    	// of the entity.
+    	((EntityInterfaceImpl)node.getEntityInterface()).allowEntitiesInImmutableValues(true);
+    	Json e1 = Json.object("entity", "thing", "label", "My Thing 1");
+    	HGHandle h = node.add(e1).getPersistent();
+    	Json value = Json.object("prop1", 10, 
+    							 "prop2", false, 
+    							 "myentity", e1);
+    	HGHandle valueHandle = node.add(value).getPersistent();
+    	this.reopen();
+    	value = node.get(valueHandle);
+    	System.out.println(value);
     }
 
     public static void main(String[] argv)
@@ -224,7 +239,7 @@ public class JsonStorageTests extends HGTestBase
         try
         {
         	JsonStorageTests.setUp();
-            test.testAddEntity();
+            test.testAddCircular();
             System.out.println("test passed successfully");
         }
         catch (Throwable t)
