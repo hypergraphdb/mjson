@@ -94,6 +94,14 @@ public class HyperNodeJson implements HyperNode
     }
 
     /**
+     * <p>Return the underlying graph.</p>
+     */
+    public HyperGraph graph()
+    {
+    	return graph;
+    }
+    
+    /**
      * <p>Return the {@link EntityInterface} implementation this node is using.</p>
      */
     public EntityInterface getEntityInterface()
@@ -440,7 +448,7 @@ public class HyperNodeJson implements HyperNode
             return incache;
     	return graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() { public HGHandle call() {
     		if (!j.isObject() || !entityInterface.isEntity(j))
-    			return assertTxn(j);    		
+    			return addImpl(j, null);    		
     		// We have to store an entity and we have several possible situations: 
             // 1. the atom is not stored in the db at all => we have to add it
             // 2. the atom is stored already and it's different => we have to replace
@@ -530,13 +538,13 @@ public class HyperNodeJson implements HyperNode
     private HGHandle addTxn(Json j, HGHandle handle)
     {
         if (j.isNull())
-        	handle = addElement(j, JsonTypeSchema.nullTypeHandle, handle);
+        	addElement(j, JsonTypeSchema.nullTypeHandle, handle);
         else if (j.isBoolean())
-        	handle = addElement(j, JsonTypeSchema.booleanTypeHandle, handle);
+        	addElement(j, JsonTypeSchema.booleanTypeHandle, handle);
         else if (j.isString())
-            handle = addElement(j, JsonTypeSchema.stringTypeHandle, handle);
+            addElement(j, JsonTypeSchema.stringTypeHandle, handle);
         else if (j.isNumber())
-            handle = addElement(j, JsonTypeSchema.numberTypeHandle, handle);        	
+            addElement(j, JsonTypeSchema.numberTypeHandle, handle);        	
         else if (j.isArray())
         {
             int length = j.asJsonList().size();
@@ -662,8 +670,14 @@ public class HyperNodeJson implements HyperNode
         return h;
     }
 
-   public HGHandle add(Object atom, HGHandle type, int flags)
-   {
+    public HGHandle add(Object atom, HGHandle type, int flags)
+    {
+    	// Make sure somebody doesn't get smart and use this method, which we need to provide
+    	// to fully implement the HyperNode interface for JSON elements.
+    	if (JsonTypeSchema.isJsonType(type))
+    	{
+    		throw new IllegalArgumentException("Use the HyperNodeJson.add(Object) method to add JSON elements to the database.");
+    	}
         return graph.add(atom, type, flags);
     }
 
@@ -749,6 +763,12 @@ public class HyperNodeJson implements HyperNode
         // For objects, we sync up old with new, deleting missing properties and setting new ones.
         
         // First put all properties of the old object in a map so we know their value handles:
+        Object xx = graph.get(handle);
+        if (! (xx instanceof HGValueLink) ) 
+        {
+        	System.out.println("Atom expected value link : " + xx);
+        	xx = graph.get(handle);
+        }
         HGValueLink currentAsLink = graph.get(handle);
         Map<String, HGHandle> valueMap = new HashMap<String, HGHandle>();
         for (HGHandle propHandle : currentAsLink)

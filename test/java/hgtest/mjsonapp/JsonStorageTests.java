@@ -116,6 +116,27 @@ public class JsonStorageTests extends HGTestBase
     }
 
     @Test
+    public void testObjectUpdate()
+    {
+    	Json o = Json.object("name", "Dusty", 
+    						 "position", 5.45, 
+    						 "age", 55, 
+    						 "entity", "user",
+    						 "address", Json.object("street", "35 Bloom", 
+    								 				"properties", Json.object(),
+    								 			    "city", Json.object("name", "New York",
+    								 			    					"properties", Json.nil(),
+    								 			    					"population", 10000000)));
+    	HGHandle h = node.add(o);
+    	Json newo = o.dup();
+    	newo.set("name", "Dustier");
+    	node.replace(h, newo, node.getType(h));
+    	reopen();
+    	Json readBack = node.get(h.getPersistent());
+    	Assert.assertEquals(newo, readBack);
+    }
+    
+    @Test
     public void testAssertNumber()
     {
         // The smallest number expressible as the sum of cubes in two different ways
@@ -233,13 +254,28 @@ public class JsonStorageTests extends HGTestBase
     	System.out.println(value);
     }
 
+    @Test
+    public void storeEmptyObject()
+    {
+    	Json empty = Json.object();
+    	HGHandle h = node.add(empty).getPersistent();
+    	Assert.assertEquals(Json.object(), node.get(h));
+    	Json withEmpty = Json.object("type", "bla", "nested", Json.object());
+    	h = node.add(withEmpty).getPersistent();
+    	withEmpty.set("type", "foo");
+    	node.update(withEmpty);
+    	this.reopen();
+    	Assert.assertEquals(Json.object("type", "foo", "nested", Json.object()), node.get(h));
+    }
+    
     public static void main(String[] argv)
     {
         JsonStorageTests test = new JsonStorageTests();
         try
         {
         	JsonStorageTests.setUp();
-            test.testAddCircular();
+        	test.testObjectUpdate();
+            test.storeEmptyObject();
             System.out.println("test passed successfully");
         }
         catch (Throwable t)

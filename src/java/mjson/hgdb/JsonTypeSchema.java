@@ -160,5 +160,20 @@ public final class JsonTypeSchema implements HGTypeSchema<Object>
     public static final HGHandle arrayTypeHandle = 
         UUIDHandleFactory.I.makeHandle("483e588c-e823-4dd7-b77a-80ffdf737e0d");
     public static final HGHandle objectTypeHandle = 
-        UUIDHandleFactory.I.makeHandle("88308625-b6ea-4c5f-828c-cc9ffae25da4");    
+        UUIDHandleFactory.I.makeHandle("88308625-b6ea-4c5f-828c-cc9ffae25da4");
+    
+    /**
+     * Return <code>true</code> if the passed in handle is one of the JSON HyperGraph types
+     * @param typeHandle
+     * @return
+     */
+    public static boolean isJsonType(HGHandle typeHandle)
+    {
+    	return objectTypeHandle.equals(typeHandle) ||
+    		   arrayTypeHandle.equals(typeHandle) ||
+    		   stringTypeHandle.equals(typeHandle) ||
+    		   numberTypeHandle.equals(typeHandle) ||
+    		   nullTypeHandle.equals(typeHandle) ||
+    		   booleanTypeHandle.equals(typeHandle);
+    }
 }

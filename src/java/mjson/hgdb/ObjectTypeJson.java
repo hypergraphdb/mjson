@@ -37,6 +37,10 @@ public class ObjectTypeJson extends HGAtomTypeBase
                        IncidenceSetRef incidenceSet)
     {
         HGHandle [] targets = targetSet.deref();
+        if (targets.length == 0)
+        	// HyperGraph itself will not wrap unless it sees some targets, since there is nothing the type
+        	// interface to expect a link.
+        	return new HGValueLink(Json.object());
         Json j = Json.object();
         for (HGHandle t : targets)
         {

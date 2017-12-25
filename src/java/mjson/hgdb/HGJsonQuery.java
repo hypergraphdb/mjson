@@ -14,6 +14,8 @@ import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGQuery;
 import org.hypergraphdb.HGRandomAccessResult;
 import org.hypergraphdb.HGSearchResult;
+import org.hypergraphdb.HGQuery.hg;
+import org.hypergraphdb.query.And;
 import org.hypergraphdb.query.impl.FilteredResultSet;
 import org.hypergraphdb.query.impl.KeyBasedQuery;
 import org.hypergraphdb.query.impl.PipedResult;
@@ -59,8 +61,15 @@ class HGJsonQuery
         return (double)cnt/(double)total;
     }
     
+    /**
+     * Predicate interface declared as a Json->Json mapping, returning its
+     * argument when a certain condition is met and null otherwise.
+     */
     static abstract class ItemMap implements Mapping<Json, Json> {}
     
+    /**
+     * Predicate checking that a given object property is a string matching a regular expression.
+     */
     static class RegExFilter extends ItemMap 
     {
         String property;
@@ -84,6 +93,10 @@ class HGJsonQuery
         }
     }
     
+    /**
+     * Predicate checking that a given properties is a string (a long text) where 
+     * any of the defined keywords appear with a certain cummulative frequency (assignScore).
+     */
     static class KeywordMatch extends ItemMap
     {
         String property;
@@ -117,6 +130,9 @@ class HGJsonQuery
         }
     }
     
+    /**
+     * Predicate returning its argument whenever it has one of a set of properties, or null otherwise.
+     */
     static class PropertyOr extends ItemMap
     {
         Map<String, Json> condition;
@@ -132,6 +148,18 @@ class HGJsonQuery
         }
     }
     
+    /**
+     * Creates a {@link PropertyOr} predicate (checking that any of a number of properties is
+     * present in a Json object) as follows: the name parameter is assumed to be of the form
+     * <code>operator:group:P</code> and <code>pattern.at(name)</code> will have some value V.
+     * Any other property name in pattern that has the same form, with the same operator and
+     * the same group will be taken as well. All pairs (P,V) make up the map used to construct 
+     * the PropertyOr predicate. 
+     * 
+     *  The above paragraph was written by reverse engineering the code years after it was
+     *  written. So I'm not sure anymore what the original intent was. Clearly the group portion
+     *  identifies a group, but what is the purpose of the operator?
+     */
     static ItemMap collectPropertyGroup(String name, Json pattern)
     {
         Map<String, Json> values = new HashMap<String, Json>();
@@ -200,27 +228,52 @@ class HGJsonQuery
     }
     
     @SuppressWarnings("unchecked")
-    static HGSearchResult<HGHandle> findObjectPattern(final HyperNodeJson node, Json pattern, boolean exact)
+	static HGSearchResult<HGHandle> findExactObject(final HyperNodeJson node, Json j)
     {
-        pattern = pattern.dup();        
-        final Collection<ItemMap> maps = collectMaps(pattern);
-        Mapping<HGHandle, Boolean> themap = null;
-        if (!maps.isEmpty())
+    	if (!j.isObject())
+    		return (HGSearchResult<HGHandle>) HGSearchResult.EMPTY; 
+    	
+        HGHandle [] A = new HGHandle[j.asJsonMap().size()];
+        int i = 0;
+        for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
         {
-            themap = new Mapping<HGHandle, Boolean>()
-            {
-                public Boolean eval(HGHandle h)
-                {
-                    Json j = node.get(h);
-                    for (ItemMap m : maps)
-                    {
-                        j = m.eval(j);
-                        if (j.isNull())
-                            return false;
-                    }
-                    return true;
-                }
-            };
+        	HGHandle propHandle = node.findProperty(e.getKey(), e.getValue());
+        	if (propHandle == null)
+        		return (HGSearchResult<HGHandle>) HGSearchResult.EMPTY;
+            A[i++] = propHandle;
+        }
+        return node.graph().find(hg.and(hg.type(JsonTypeSchema.objectTypeHandle), 
+		                                hg.link(A), 
+		                                 hg.arity(i)));
+    }
+    
+    @SuppressWarnings("unchecked")
+    static HGSearchResult<HGHandle> findObjectPattern(final HyperNodeJson node, Json pattern, final boolean exact)
+    {
+    	if (exact)
+    		return findExactObject(node, pattern);
+        pattern = pattern.dup();        
+        Mapping<HGHandle, Boolean> themap = null;
+        if (!exact)
+        {
+	        final Collection<ItemMap> maps = collectMaps(pattern);
+	        if (!maps.isEmpty())
+	        {
+	            themap = new Mapping<HGHandle, Boolean>()
+	            {
+	                public Boolean eval(HGHandle h)
+	                {
+	                    Json j = node.get(h);
+	                    for (ItemMap m : maps)
+	                    {
+	                        j = m.eval(j);
+	                        if (j.isNull())
+	                            return false;
+	                    }
+	                    return true;
+	                }
+	            };
+	        }
         }
         HGSearchResult<HGHandle> [] propertyCandidates = new HGSearchResult[pattern.asJsonMap().size()];
         int i = 0;
@@ -246,14 +299,13 @@ class HGJsonQuery
             	{
         			public HGSearchResult<HGHandle> execute()
         			{
-        				return node.find(hg.and(hg.type(JsonTypeSchema.objectTypeHandle), hg.link(getKey()))); 
+        				And and = hg.and(hg.type(JsonTypeSchema.objectTypeHandle), hg.link(getKey()));
+        				return node.find(and); 
         			} 
             	},
             	true
             ); 
-            		
-//            		node.graph.find(and); 
-            if (maps.isEmpty())
+            if (themap == null)
                 return rs;
             else
                 return new FilteredResultSet<HGHandle>(rs, themap, 0);
