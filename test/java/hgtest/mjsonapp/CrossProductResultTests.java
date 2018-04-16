@@ -7,7 +7,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
-
 import org.assertj.core.util.Lists;
 import org.hypergraphdb.HGEnvironment;
 import org.hypergraphdb.HGHandle;
@@ -17,9 +16,7 @@ import org.hypergraphdb.util.HGUtils;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
-
 import hgtest.T;
 import mjson.hgdb.querying.CrossProductResultSet;
 

@@ -503,17 +503,17 @@ public class HyperNodeJson implements HyperNode
     private HGHandle addElement(Json j, HGHandle typeHandle, HGHandle elementHandle)
     {
         if (elementHandle == null) 
-        	elementHandle = graph.add(j, typeHandle);
+        		elementHandle = graph.add(j, typeHandle);
         else
-        	graph.define(elementHandle, typeHandle, j, HGSystemFlags.DEFAULT); 
-    	return elementHandle;
+        		graph.define(elementHandle, typeHandle, j, HGSystemFlags.DEFAULT); 
+    		return elementHandle;
     }
     
     private HGHandle addValue(Json value)
     {
         HGHandle valueHandle = getHandle(value);
         if (valueHandle == null)
-        	valueHandle = maybeEntityRef(value);
+        		valueHandle = maybeEntityRef(value);
         if (valueHandle == null)
             valueHandle = addImpl(value, null);
         return valueHandle;
@@ -521,7 +521,7 @@ public class HyperNodeJson implements HyperNode
     
     private HGHandle addProperty(String name, Json value)
     {
-    	HGHandle valueHandle = addValue(value);
+    		HGHandle valueHandle = addValue(value);
         HGHandle propHandle = null;
         HGHandle nameHandle = hg.findOne(graph, hg.eq(name));
         if (nameHandle == null)
@@ -538,9 +538,9 @@ public class HyperNodeJson implements HyperNode
     private HGHandle addTxn(Json j, HGHandle handle)
     {
         if (j.isNull())
-        	addElement(j, JsonTypeSchema.nullTypeHandle, handle);
+        		addElement(j, JsonTypeSchema.nullTypeHandle, handle);
         else if (j.isBoolean())
-        	addElement(j, JsonTypeSchema.booleanTypeHandle, handle);
+        		addElement(j, JsonTypeSchema.booleanTypeHandle, handle);
         else if (j.isString())
             addElement(j, JsonTypeSchema.stringTypeHandle, handle);
         else if (j.isNumber())
@@ -551,14 +551,21 @@ public class HyperNodeJson implements HyperNode
             HGHandle [] A = new HGHandle[length];
             for (int i = 0; i < length; i++)
                 A[i] = addValue(j.at(i));
-            return graph.add(new HGValueLink(j, A), JsonTypeSchema.arrayTypeHandle);            
+            if (handle == null)
+            		return graph.add(new HGValueLink(j, A), JsonTypeSchema.arrayTypeHandle);
+            else
+            {
+            		graph.define(handle, JsonTypeSchema.arrayTypeHandle, new HGValueLink(j, A), 0);
+            		return handle;
+            }            		
         }
         else if (j.isObject())
         {
             HGHandle thisHandle = null;
             if (entityInterface.entityHandleProperty() != null && j.has(entityInterface.entityHandleProperty())) 
-                thisHandle = graph.getHandleFactory().makeHandle(
-                				j.atDel(entityInterface.entityHandleProperty()).asString());
+                thisHandle = graph.getHandleFactory().makeHandle(j.atDel(entityInterface.entityHandleProperty()).asString());
+            else if (handle != null)
+            		thisHandle = handle;
             HGHandle [] A = new HGHandle[j.asJsonMap().size()];                    
             int i = 0;
             for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
@@ -681,9 +688,21 @@ public class HyperNodeJson implements HyperNode
         return graph.add(atom, type, flags);
     }
 
-    public void define(HGHandle handle, HGHandle type, Object instance, int flags)
+    /**
+     * Implements the semantics of the {@link HyperNode#define(HGHandle, HGHandle, Object, int)} method. 
+     * When the atom defined is a <code>Json</code> instance, the type parameter is ignored. 
+     */
+    public void define(final HGHandle handle, final HGHandle type, final Object instance, final int flags)
     {
-        graph.define(handle, type, instance, flags);
+    		if (! (instance instanceof Json))
+    			graph.define(handle, type, instance, flags);
+    		graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() { public HGHandle call() {
+    			if (get(handle) != null)
+    				throw new IllegalArgumentException("Cannot define a new atom since handle " + handle +  "is already used.");
+    			addImpl((Json)instance, handle);    			
+    			//graph.define(handle, type, instance, flags);
+    			return handle;
+    		} });
     }
 
     public boolean remove(HGHandle handle)
