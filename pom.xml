@@ -3,11 +3,6 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
                       http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <parent>
-    <groupId>org.hypergraphdb</groupId>
-    <artifactId>hypergraphdb</artifactId>
-    <version>1.4-SNAPSHOT</version>  
-  </parent>  
   <properties>
     <packageit>bundle</packageit>
     <bundle.symbolicName>${groupId}-${artifactId};singleton:=true</bundle.symbolicName>
@@ -16,7 +11,7 @@
   <packaging>jar</packaging>    
   <groupId>org.hypergraphdb</groupId>
   <artifactId>hgdbmjson</artifactId>
-  <version>1.4-SNAPSHOT</version>
+  <version>2.0-SNAPSHOT</version>
   <name>HyperGraphDB MJSON Persistence</name>
   
   <repositories>
@@ -34,7 +29,7 @@
     <dependency>
       <groupId>org.hypergraphdb</groupId>
       <artifactId>hgdb</artifactId>
-      <version>1.4-SNAPSHOT</version>
+      <version>2.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.sharegov</groupId>
@@ -44,13 +39,13 @@
     <dependency>
       <groupId>org.hypergraphdb</groupId>
       <artifactId>hgdbtest</artifactId>
-      <version>1.4-SNAPSHOT</version>
+      <version>2.0-SNAPSHOT</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.hypergraphdb</groupId>
       <artifactId>hgbdbje</artifactId>
-      <version>1.4-SNAPSHOT</version>
+      <version>2.0-SNAPSHOT</version>
       <scope>test</scope>
     </dependency>
 		<dependency>
@@ -63,11 +58,52 @@
 		</dependency>    
   </dependencies>
   <build>
-   <testResources>
-       <testResource>
-           <directory>test/resources</directory>
-       </testResource>
-   </testResources>    
+ 		<directory>target</directory>
+		<outputDirectory>target/classes</outputDirectory>
+		<finalName>${project.artifactId}-${project.version}</finalName>
+		<sourceDirectory>src/java</sourceDirectory>
+		<testOutputDirectory>target/test-classes</testOutputDirectory>
+		<testSourceDirectory>test/java</testSourceDirectory>
+		<testResources>
+			<testResource>
+				<directory>test/resources</directory>
+			</testResource>
+		</testResources>
+ 		<extensions>
+			<extension>
+				<groupId>org.apache.maven.wagon</groupId>
+				<artifactId>wagon-ssh</artifactId>
+				<version>2.10</version>
+			</extension>
+		</extensions>
+	  <pluginManagement>
+	  <plugins>
+		<plugin>
+		  <groupId>org.eclipse.m2e</groupId>
+		  <artifactId>lifecycle-mapping</artifactId>
+		  <version>1.0.0</version>
+		  <configuration>
+			<lifecycleMappingMetadata>
+			  <pluginExecutions>
+				<pluginExecution>
+				  <pluginExecutionFilter>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-dependency-plugin</artifactId>
+					<versionRange>[1.0.0,)</versionRange>
+					<goals>
+					  <goal>unpack</goal>
+					</goals>
+				  </pluginExecutionFilter>
+				  <action>
+					<ignore />
+				  </action>
+				</pluginExecution>
+			  </pluginExecutions>
+			</lifecycleMappingMetadata>
+		  </configuration>
+		</plugin>
+	  </plugins>
+	  </pluginManagement>
    <plugins>
      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -81,7 +117,7 @@
     <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
-        <version>1.4.0</version>
+        <version>4.2.1</version>
         <extensions>true</extensions>
         <configuration>
  		  <manifestLocation>META-INF</manifestLocation>        
@@ -93,6 +129,29 @@
           </instructions>
         </configuration>
     </plugin>     
+  <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <version>3.8.1</version>
+    <configuration>
+      <source>11</source>
+      <target>11</target>
+    </configuration>    		
+  </plugin>
+  <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-surefire-plugin</artifactId>
+    <configuration>
+      <forkMode>always</forkMode>
+      <argLine>-Djava.library.path=${project.build.directory}/lib</argLine>        
+      <includes>
+        <include>**/*.java</include>
+      </includes>
+      <aggregate>true</aggregate>
+      <!--also set this to link to generated source reports-->
+      <linkXRef>true</linkXRef>
+    </configuration>
+  </plugin>
     </plugins>
   </build>  
 </project>

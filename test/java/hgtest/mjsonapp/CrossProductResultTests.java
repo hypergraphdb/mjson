@@ -30,7 +30,7 @@ public class CrossProductResultTests
 		Iterator<HGHandle> I = tuple.iterator();
 		while (I.hasNext())
 		{
-			sb.append(graph.get(I.next()));
+			sb.append(graph.get(I.next()).toString());
 			if (I.hasNext()) sb.append(", ");
 		}
 		sb.append("]");
@@ -86,7 +86,7 @@ public class CrossProductResultTests
 			{
 				while (rs.hasNext())
 				{
-					System.out.println(graph.get(rs.next().get(0)));
+					System.out.println((String) graph.get(rs.next().get(0)));
 					atoms.remove(rs.current().get(0));
 				}
 			}
