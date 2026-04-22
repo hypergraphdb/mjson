@@ -168,7 +168,7 @@ class HGJsonQuery
         String groupname = parts[1];
         values.put(parts[2], pattern.at(name));
         pattern.delAt(name);
-        for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
+        for (Map.Entry<String, Json> e : pattern.dup().asJsonMap().entrySet())
         {
             String next = e.getKey();
             if (!next.startsWith(operator))
@@ -189,7 +189,7 @@ class HGJsonQuery
     static Collection<ItemMap> collectMaps(Json pattern)
     {
         Set<ItemMap> S = new HashSet<ItemMap>();
-        for (Map.Entry<String, Json> e : pattern.asJsonMap().entrySet())
+        for (Map.Entry<String, Json> e : pattern.dup().asJsonMap().entrySet())
         {
             String name = e.getKey();
             // If name starts with an operator, it spans multiple properties
