@@ -1,0 +1,5 @@
+target/
+.bloop/
+.metals/
+.vscode/settings.json
+settings.json

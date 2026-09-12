@@ -30,6 +30,13 @@
     </repository>    
   </repositories>
   
+  <distributionManagement>
+    <repository>
+      <id>hypergraphdb-repository</id>
+      <url>scp://hypergraphdb.org/var/www/hypergraphdb.org/maven</url>
+    </repository>
+  </distributionManagement>  
+  
   <dependencies>  
     <dependency>
       <groupId>org.hypergraphdb</groupId>
@@ -63,6 +70,13 @@
 		</dependency>    
   </dependencies>
   <build>
+    <extensions>
+      <extension>
+        <groupId>org.apache.maven.wagon</groupId>
+        <artifactId>wagon-ssh</artifactId>
+        <version>3.5.3</version>
+      </extension>
+    </extensions>
    <testResources>
        <testResource>
            <directory>test/resources</directory>

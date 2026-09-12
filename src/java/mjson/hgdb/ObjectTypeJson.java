@@ -48,7 +48,11 @@ public class ObjectTypeJson extends HGAtomTypeBase
             String name = graph.get(prop.getName());
             Json value = null;            
             Object x = graph.get(prop.getValue());
-            if (x instanceof HGValueLink)
+            if (prop.getValue().equals(graph.getHandleFactory().nullHandle()))
+                value = Json.nil();
+            else if (x == null)
+                throw new NullPointerException("Property value atom not found for handle: " + prop.getValue());
+            else if (x instanceof HGValueLink)
                 value = (Json)((HGValueLink)x).getValue();
             else
                 value = (Json)x;         
