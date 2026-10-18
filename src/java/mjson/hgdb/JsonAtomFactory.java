@@ -32,11 +32,11 @@ public class JsonAtomFactory implements Factory
 
     public Json object()
     {
-        return new ArrayJsonHGDB();
+        return new ObjectJsonHGDB();        
     }
 
     public Json array()
     {
-        return new ObjectJsonHGDB();
+        return new ArrayJsonHGDB();
     }
 }

@@ -13,9 +13,9 @@ import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HyperGraph;
 import org.hypergraphdb.HGQuery.hg;
 import org.hypergraphdb.util.HGUtils;
-import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.Assert;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 import hgtest.T;
 import mjson.hgdb.querying.CrossProductResultSet;
@@ -30,21 +30,23 @@ public class CrossProductResultTests
 		Iterator<HGHandle> I = tuple.iterator();
 		while (I.hasNext())
 		{
-			sb.append(graph.get(I.next()));
+			sb.append((Object)graph.get(I.next()));
 			if (I.hasNext()) sb.append(", ");
 		}
 		sb.append("]");
 		return sb.toString();
 	}
 	
-	@BeforeClass
-	public static void initGraph() throws IOException
+	// A fresh database per test: the tests add atoms of the same types, so sharing one
+	// database made the result of testEmptyProduct depend on the test execution order.
+	@Before
+	public void initGraph() throws IOException
 	{
 		graph = HGEnvironment.get(Files.createTempDirectory("hgtest").toFile().getAbsolutePath());
 	}
 	
-	@AfterClass
-	public static void dropGraph()
+	@After
+	public void dropGraph()
 	{
 		if (graph != null)
 			graph.close();
@@ -86,7 +88,7 @@ public class CrossProductResultTests
 			{
 				while (rs.hasNext())
 				{
-					System.out.println(graph.get(rs.next().get(0)));
+					System.out.println((Object)graph.get(rs.next().get(0)));
 					atoms.remove(rs.current().get(0));
 				}
 			}

@@ -8,6 +8,7 @@ import org.hypergraphdb.HGConfiguration;
 import org.hypergraphdb.HGEnvironment;
 import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGSearchResult;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -73,6 +74,7 @@ public class JsonQueryTests extends HGTestBase
 	@BeforeClass
 	public static void setUp()
 	{
+        Json.setGlobalFactory(HyperNodeJson.factory());
         config = new HGConfiguration();
         config.getTypeConfiguration().addSchema(new JsonTypeSchema());
         graph = HGEnvironment.get(getGraphLocation(), config);
@@ -82,6 +84,12 @@ public class JsonQueryTests extends HGTestBase
         load_many("/hgtest/mjsonapp/dataset1.json");
         load_one("/hgtest/mjsonapp/data1.json");
         load_many("/hgtest/mjsonapp/arrays.json");
+	}
+
+	@AfterClass
+	public static void restoreFactory()
+	{
+		Json.setGlobalFactory(Json.defaultFactory);
 	}
 	
 	@Test

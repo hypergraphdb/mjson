@@ -53,6 +53,7 @@ public class JsonStorageTests extends HGTestBase
     @BeforeClass
     public static void setUp()
     {
+        Json.setGlobalFactory(HyperNodeJson.factory());
         HGUtils.dropHyperGraphInstance(getGraphLocation());    	
         config = new HGConfiguration();
         config.getTypeConfiguration().addSchema(new JsonTypeSchema());
@@ -63,6 +64,12 @@ public class JsonStorageTests extends HGTestBase
     public static void tearDown()
     {
     	closeNode();
+    }
+
+    @AfterClass
+    public static void restoreFactory()
+    {
+        Json.setGlobalFactory(Json.defaultFactory);
     }
     
     @Test
@@ -260,12 +267,15 @@ public class JsonStorageTests extends HGTestBase
     	Json empty = Json.object();
     	HGHandle h = node.add(empty).getPersistent();
     	Assert.assertEquals(Json.object(), node.get(h));
-    	Json withEmpty = Json.object("type", "bla", "nested", Json.object());
+    	// Only entities can be updated (values are immutable), so the updated object is an entity.
+    	Json withEmpty = Json.object("entity", "thing", "type", "bla", "nested", Json.object());
     	h = node.add(withEmpty).getPersistent();
     	withEmpty.set("type", "foo");
     	node.update(withEmpty);
     	this.reopen();
-    	Assert.assertEquals(Json.object("type", "foo", "nested", Json.object()), node.get(h));
+    	Json readBack = node.get(h);
+    	readBack = readBack.dup().delAt("hghandle");
+    	Assert.assertEquals(Json.object("entity", "thing", "type", "foo", "nested", Json.object()), readBack);
     }
     
     public static void main(String[] argv)
