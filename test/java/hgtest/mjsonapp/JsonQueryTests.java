@@ -46,14 +46,20 @@ public class JsonQueryTests extends HGTestBase
     	return node.get(h);
     }
     
-    static Collection<Json> matchMany(Json pattern, boolean exact)
+    static Collection<Json> matchMany(final Json pattern, final boolean exact)
     {
-    	ArrayList<Json> L = new ArrayList<Json>();
-    	try (HGSearchResult<HGHandle> rs = node.find(pattern, exact))
-    	{
-    		L.add((Json)node.get(rs.next()));
-    	}
-    	return L;
+    	return graph.getTransactionManager().ensureTransaction(new java.util.concurrent.Callable<Collection<Json>>() {
+    		public Collection<Json> call()
+    		{
+		    	ArrayList<Json> L = new ArrayList<Json>();
+		    	try (HGSearchResult<HGHandle> rs = node.find(pattern, exact))
+		    	{
+		    		while (rs.hasNext())
+		    			L.add((Json)node.get(rs.next()));
+		    	}
+		    	return L;
+    		}
+    	});
     }
     
     static void load_one(String resource)
@@ -187,6 +193,12 @@ public class JsonQueryTests extends HGTestBase
 //		Assert.assertNull(node.match(arrayPattern, true));		
 	}
 	
+	@Test(expected = org.hypergraphdb.HGException.class)
+	public void testFindRequiresTransaction()
+	{
+		node.find(Json.object("username", "morbo"));
+	}
+
 	@Test
 	public void testMatchRegExPattern()
 	{
