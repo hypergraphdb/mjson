@@ -205,23 +205,38 @@ public class HyperNodeJson implements HyperNode
     }
     
     @SuppressWarnings("unchecked")
-    public List<HGHandle> findPropertyValues(String name)
+    public List<HGHandle> findPropertyValues(final String name)
     {
-        HGHandle h = findName.var("name", name).findOne();
-        return h == null ? Collections.EMPTY_LIST : findPropertyValues(h);         
+        return graph.getTransactionManager().ensureTransaction(new Callable<List<HGHandle>>() {
+            public List<HGHandle> call()
+            {
+                HGHandle h = findName.var("name", name).findOne();
+                return h == null ? Collections.EMPTY_LIST : findPropertyValues(h);
+            }
+        });
     }
     
-    public List<HGHandle> findPropertyValues(HGHandle name)
+    public List<HGHandle> findPropertyValues(final HGHandle name)
     {
-        return graph.findAll(hg.apply(hg.targetAt(graph, 1), 
-                              hg.and(hg.type(JsonProperty.class), 
-                               hg.orderedLink(name, hg.anyHandle()))));
+        return graph.getTransactionManager().ensureTransaction(new Callable<List<HGHandle>>() {
+            public List<HGHandle> call()
+            {
+                return graph.findAll(hg.apply(hg.targetAt(graph, 1), 
+                                      hg.and(hg.type(JsonProperty.class), 
+                                       hg.orderedLink(name, hg.anyHandle()))));
+            }
+        });
     }
     
-    public Json retrieve(Json j)
+    public Json retrieve(final Json j)
     {
-        HGHandle h = match(j, false);
-        return h == null ? null : (Json)get(h);
+        return graph.getTransactionManager().ensureTransaction(new Callable<Json>() {
+            public Json call()
+            {
+                HGHandle h = match(j, false);
+                return h == null ? null : (Json)get(h);
+            }
+        });
     }
     
     /**
@@ -237,15 +252,20 @@ public class HyperNodeJson implements HyperNode
      * @return The <code>HGHandle</code> of the first matched element or <code>null</code>
      * if none was found.
      */
-    public HGHandle match(Json j, boolean exact)
+    public HGHandle match(final Json j, final boolean exact)
     {
-        HGHandle h = getHandle(j);
-        if (h != null)
-            return h;
-        try (HGSearchResult<HGHandle> rs = this.find(j, exact)) 
-        {
-        	return rs.hasNext() ? rs.next() : null;
-        }
+        return graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() {
+            public HGHandle call()
+            {
+                HGHandle h = getHandle(j);
+                if (h != null)
+                    return h;
+                try (HGSearchResult<HGHandle> rs = HyperNodeJson.this.find(j, exact)) 
+                {
+                    return rs.hasNext() ? rs.next() : null;
+                }
+            }
+        });
     }
 
     /**
@@ -278,6 +298,8 @@ public class HyperNodeJson implements HyperNode
     @SuppressWarnings("unchecked")
     public HGSearchResult<HGHandle> find(Json pattern, boolean exact)
     {
+        if (graph.getTransactionManager().getContext().getCurrent() == null)
+            throw new HGException("HyperNodeJson.find requires an active transaction.");
         if (pattern.isNull())
         {
             return new ArrayBasedSet<HGHandle>(new HGHandle[] { getNullHandle()}).getSearchResult();
@@ -332,36 +354,46 @@ public class HyperNodeJson implements HyperNode
      * 
      * @param pattern The Json pattern to use. See {@link #find(Json)}.
      */
-    public List<HGHandle> findAll(Json pattern)
+    public List<HGHandle> findAll(final Json pattern)
     {
-        ArrayList<HGHandle> L = new ArrayList<HGHandle>();
-        HGSearchResult<HGHandle> rs = find(pattern);
-        try
-        {
-            while (rs.hasNext())
-                L.add(rs.next());
-        }
-        finally 
-        {
-            HGUtils.closeNoException(rs);
-        }
-        return L;
+        return graph.getTransactionManager().ensureTransaction(new Callable<List<HGHandle>>() {
+            public List<HGHandle> call()
+            {
+                ArrayList<HGHandle> L = new ArrayList<HGHandle>();
+                HGSearchResult<HGHandle> rs = find(pattern);
+                try
+                {
+                    while (rs.hasNext())
+                        L.add(rs.next());
+                }
+                finally 
+                {
+                    HGUtils.closeNoException(rs);
+                }
+                return L;
+            }
+        });
     }
     
-    public Json getAll(Json pattern)
+    public Json getAll(final Json pattern)
     {
-        Json L = Json.array();
-        HGSearchResult<HGHandle> rs = find(pattern);
-        try
-        {
-            while (rs.hasNext())
-                L.add((Json)get(rs.next()));
-        }
-        finally
-        {
-        	rs.close();
-        }
-        return L;        
+        return graph.getTransactionManager().ensureTransaction(new Callable<Json>() {
+            public Json call()
+            {
+                Json L = Json.array();
+                HGSearchResult<HGHandle> rs = find(pattern);
+                try
+                {
+                    while (rs.hasNext())
+                        L.add((Json)get(rs.next()));
+                }
+                finally
+                {
+                	rs.close();
+                }
+                return L;
+            }
+        });
     }
     
     public HGHandle getHandle(Object atom)
@@ -851,21 +883,34 @@ public class HyperNodeJson implements HyperNode
 
     public <T> HGSearchResult<T> find(HGQueryCondition condition)
     {
+        if (graph.getTransactionManager().getContext().getCurrent() == null)
+            throw new HGException("HyperNodeJson.find requires an active transaction.");
         return graph.find(condition);
     }
 
-    public <T> T getOne(HGQueryCondition condition)
+    public <T> T getOne(final HGQueryCondition condition)
     {
-        return get((HGHandle)findOne(condition));
+        return graph.getTransactionManager().ensureTransaction(new Callable<T>() {
+            public T call()
+            {
+                HGHandle h = findOne(condition);
+                return h == null ? null : (T)get(h);
+            }
+        });
     }
 
     @SuppressWarnings("unchecked")
-    public <T> List<T> getAll(HGQueryCondition condition)
+    public <T> List<T> getAll(final HGQueryCondition condition)
     {
-        List<T> L = new ArrayList<T>();
-        for (HGHandle h : findAll(condition))
-            L.add((T)get(h));
-        return L;
+        return graph.getTransactionManager().ensureTransaction(new Callable<List<T>>() {
+            public List<T> call()
+            {
+                List<T> L = new ArrayList<T>();
+                for (HGHandle h : findAll(condition))
+                    L.add((T)get(h));
+                return L;
+            }
+        });
     }
 
     @SuppressWarnings("unchecked")
