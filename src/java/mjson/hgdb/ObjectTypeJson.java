@@ -1,5 +1,8 @@
 package mjson.hgdb;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import mjson.Json;
 
 import org.hypergraphdb.HGHandle;
@@ -37,11 +40,7 @@ public class ObjectTypeJson extends HGAtomTypeBase
                        IncidenceSetRef incidenceSet)
     {
         HGHandle [] targets = targetSet.deref();
-        if (targets.length == 0)
-        	// HyperGraph itself will not wrap unless it sees some targets, since there is nothing the type
-        	// interface to expect a link.
-        		return new HGValueLink(Json.object());
-        Json j = Json.object();
+        Map<String, Json> properties = new HashMap<String, Json>();
         for (HGHandle t : targets)
         {
             JsonProperty prop = graph.get(t);
@@ -56,12 +55,22 @@ public class ObjectTypeJson extends HGAtomTypeBase
                 value = (Json)((HGValueLink)x).getValue();
             else
                 value = (Json)x;         
+            // Nested values are the (frozen, shared) cached instances of their atoms; nested
+            // entities are represented by references.
             if (value.isObject() && node.getEntityInterface().isEntity(value))
             	value = node.getEntityInterface().createEntityReference(node, prop.getValue());
-                //value.set("hghandle", prop.getValue().getPersistent().toString());
-            j.set(name, value);
+            properties.put(name, value);
         }
-        return j;
+        Json result = new FrozenObjectJson(properties);
+        // The handle passed in is the value handle (always the null handle for this type), not the
+        // atom's: HyperNodeJson.get binds the entity's handle.
+        if (node.getEntityInterface().isEntity(result))
+            result = HGObjectJson.loaded(node, null, new HashMap<String, Json>(properties));
+        if (targets.length == 0)
+        	// HyperGraph itself will not wrap unless it sees some targets, since there is nothing the type
+        	// interface to expect a link.
+            return new HGValueLink(result);
+        return result;
     }
 
     public HGPersistentHandle store(Object instance)

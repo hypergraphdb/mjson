@@ -8,6 +8,7 @@ import org.hypergraphdb.HGConfiguration;
 import org.hypergraphdb.HGEnvironment;
 import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGSearchResult;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -45,14 +46,20 @@ public class JsonQueryTests extends HGTestBase
     	return node.get(h);
     }
     
-    static Collection<Json> matchMany(Json pattern, boolean exact)
+    static Collection<Json> matchMany(final Json pattern, final boolean exact)
     {
-    	ArrayList<Json> L = new ArrayList<Json>();
-    	try (HGSearchResult<HGHandle> rs = node.find(pattern, exact))
-    	{
-    		L.add((Json)node.get(rs.next()));
-    	}
-    	return L;
+    	return graph.getTransactionManager().ensureTransaction(new java.util.concurrent.Callable<Collection<Json>>() {
+    		public Collection<Json> call()
+    		{
+		    	ArrayList<Json> L = new ArrayList<Json>();
+		    	try (HGSearchResult<HGHandle> rs = node.find(pattern, exact))
+		    	{
+		    		while (rs.hasNext())
+		    			L.add((Json)node.get(rs.next()));
+		    	}
+		    	return L;
+    		}
+    	});
     }
     
     static void load_one(String resource)
@@ -73,6 +80,7 @@ public class JsonQueryTests extends HGTestBase
 	@BeforeClass
 	public static void setUp()
 	{
+        Json.setGlobalFactory(HyperNodeJson.factory());
         config = new HGConfiguration();
         config.getTypeConfiguration().addSchema(new JsonTypeSchema());
         graph = HGEnvironment.get(getGraphLocation(), config);
@@ -82,6 +90,12 @@ public class JsonQueryTests extends HGTestBase
         load_many("/hgtest/mjsonapp/dataset1.json");
         load_one("/hgtest/mjsonapp/data1.json");
         load_many("/hgtest/mjsonapp/arrays.json");
+	}
+
+	@AfterClass
+	public static void restoreFactory()
+	{
+		Json.setGlobalFactory(Json.defaultFactory);
 	}
 	
 	@Test
@@ -179,6 +193,12 @@ public class JsonQueryTests extends HGTestBase
 //		Assert.assertNull(node.match(arrayPattern, true));		
 	}
 	
+	@Test(expected = org.hypergraphdb.HGException.class)
+	public void testFindRequiresTransaction()
+	{
+		node.find(Json.object("username", "morbo"));
+	}
+
 	@Test
 	public void testMatchRegExPattern()
 	{

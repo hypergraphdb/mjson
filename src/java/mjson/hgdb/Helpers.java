@@ -1,6 +1,7 @@
 package mjson.hgdb;
 
-import java.util.IdentityHashMap;
+import java.util.HashMap;
+import java.util.Map;
 
 import mjson.Json;
 
@@ -33,10 +34,18 @@ public class Helpers
         return j;
     }
 
+    /**
+     * <p>
+     * Return a copy of <code>top</code> in which entity references are replaced by copies of the
+     * entities they refer to, recursively. Each entity is resolved at its first occurrence only, so
+     * cycles between entities end in references. The stored JSON (cached entities and values) is not
+     * changed.
+     * </p>
+     */
     public static Json resolveEntities(final HyperNodeJson node, final Json top)
     {
-    	final IdentityHashMap<HGHandle, Json> done = new IdentityHashMap<HGHandle, Json>(); 
-    	return traverse(top, new Mapping<Json, Boolean>() {
+    	final Map<HGHandle, Json> done = new HashMap<HGHandle, Json>(); 
+    	return traverse(top.dup(), new Mapping<Json, Boolean>() {
     		public Boolean eval(Json j)
     		{    		
     			if (j.isObject()) 
@@ -46,15 +55,13 @@ public class Helpers
 	    			{
 	    				Json value = j.at(name);
 	    				HGHandle entityHandle = node.getEntityInterface().entityReferenceToHandle(node, value);
-	    				if (entityHandle != null)
+	    				if (entityHandle != null && !done.containsKey(entityHandle.getPersistent()))
 	    				{
-	    					value = done.get(entityHandle);
-	    					if (value == null)
-	    					{
-	    						value = node.get(entityHandle);
-	    						done.put(entityHandle, value);
+	    					Json entity = node.get(entityHandle);
+	    					value = entity == null ? null : entity.dup();
+	    					done.put(entityHandle.getPersistent(), value);
+	    					if (value != null)
 	    						resolved.set(name, value);
-	    					}
 	    				}
 	    			}
     				j.with(resolved);

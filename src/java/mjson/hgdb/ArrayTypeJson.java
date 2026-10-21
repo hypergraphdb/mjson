@@ -1,5 +1,8 @@
 package mjson.hgdb;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import mjson.Json;
 
 import org.hypergraphdb.HGHandle;
@@ -23,23 +26,22 @@ public class ArrayTypeJson extends HGAtomTypeBase
                        IncidenceSetRef incidenceSet)
     {
         HGHandle [] targets = targetSet.deref();
-        Json A = Json.array();
+        List<Json> elements = new ArrayList<Json>();
         for (int i = 0; i < targets.length; i++)
         {
             Object x = graph.get(targets[i]);
+            Json value;
             if (x instanceof HGValueLink)
             {
-                Json value = (Json)((HGValueLink)x).getValue();
+                value = (Json)((HGValueLink)x).getValue();
                 if (value.isObject() && node.getEntityInterface().isEntity(value))
                 	value = node.getEntityInterface().createEntityReference(node, targets[i]);
-//                if (value.isObject())
-//                    value.set("hghandle", targets[i].getPersistent().toString());
-                A.add(value);
             }
             else
-                A.add(x);
+                value = x instanceof Json ? (Json)x : Json.make(x);
+            elements.add(value);
         }
-        return A;
+        return new FrozenArrayJson(elements);
     }
 
     public HGPersistentHandle store(Object instance)

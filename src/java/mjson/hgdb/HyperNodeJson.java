@@ -205,23 +205,38 @@ public class HyperNodeJson implements HyperNode
     }
     
     @SuppressWarnings("unchecked")
-    public List<HGHandle> findPropertyValues(String name)
+    public List<HGHandle> findPropertyValues(final String name)
     {
-        HGHandle h = findName.var("name", name).findOne();
-        return h == null ? Collections.EMPTY_LIST : findPropertyValues(h);         
+        return graph.getTransactionManager().ensureTransaction(new Callable<List<HGHandle>>() {
+            public List<HGHandle> call()
+            {
+                HGHandle h = findName.var("name", name).findOne();
+                return h == null ? Collections.EMPTY_LIST : findPropertyValues(h);
+            }
+        });
     }
     
-    public List<HGHandle> findPropertyValues(HGHandle name)
+    public List<HGHandle> findPropertyValues(final HGHandle name)
     {
-        return graph.findAll(hg.apply(hg.targetAt(graph, 1), 
-                              hg.and(hg.type(JsonProperty.class), 
-                               hg.orderedLink(name, hg.anyHandle()))));
+        return graph.getTransactionManager().ensureTransaction(new Callable<List<HGHandle>>() {
+            public List<HGHandle> call()
+            {
+                return graph.findAll(hg.apply(hg.targetAt(graph, 1), 
+                                      hg.and(hg.type(JsonProperty.class), 
+                                       hg.orderedLink(name, hg.anyHandle()))));
+            }
+        });
     }
     
-    public Json retrieve(Json j)
+    public Json retrieve(final Json j)
     {
-        HGHandle h = match(j, false);
-        return h == null ? null : (Json)get(h);
+        return graph.getTransactionManager().ensureTransaction(new Callable<Json>() {
+            public Json call()
+            {
+                HGHandle h = match(j, false);
+                return h == null ? null : (Json)get(h);
+            }
+        });
     }
     
     /**
@@ -237,15 +252,20 @@ public class HyperNodeJson implements HyperNode
      * @return The <code>HGHandle</code> of the first matched element or <code>null</code>
      * if none was found.
      */
-    public HGHandle match(Json j, boolean exact)
+    public HGHandle match(final Json j, final boolean exact)
     {
-        HGHandle h = getHandle(j);
-        if (h != null)
-            return h;
-        try (HGSearchResult<HGHandle> rs = this.find(j, exact)) 
-        {
-        	return rs.hasNext() ? rs.next() : null;
-        }
+        return graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() {
+            public HGHandle call()
+            {
+                HGHandle h = getHandle(j);
+                if (h != null)
+                    return h;
+                try (HGSearchResult<HGHandle> rs = HyperNodeJson.this.find(j, exact)) 
+                {
+                    return rs.hasNext() ? rs.next() : null;
+                }
+            }
+        });
     }
 
     /**
@@ -278,6 +298,8 @@ public class HyperNodeJson implements HyperNode
     @SuppressWarnings("unchecked")
     public HGSearchResult<HGHandle> find(Json pattern, boolean exact)
     {
+        if (graph.getTransactionManager().getContext().getCurrent() == null)
+            throw new HGException("HyperNodeJson.find requires an active transaction.");
         if (pattern.isNull())
         {
             return new ArrayBasedSet<HGHandle>(new HGHandle[] { getNullHandle()}).getSearchResult();
@@ -332,44 +354,62 @@ public class HyperNodeJson implements HyperNode
      * 
      * @param pattern The Json pattern to use. See {@link #find(Json)}.
      */
-    public List<HGHandle> findAll(Json pattern)
+    public List<HGHandle> findAll(final Json pattern)
     {
-        ArrayList<HGHandle> L = new ArrayList<HGHandle>();
-        HGSearchResult<HGHandle> rs = find(pattern);
-        try
-        {
-            while (rs.hasNext())
-                L.add(rs.next());
-        }
-        finally 
-        {
-            HGUtils.closeNoException(rs);
-        }
-        return L;
+        return graph.getTransactionManager().ensureTransaction(new Callable<List<HGHandle>>() {
+            public List<HGHandle> call()
+            {
+                ArrayList<HGHandle> L = new ArrayList<HGHandle>();
+                HGSearchResult<HGHandle> rs = find(pattern);
+                try
+                {
+                    while (rs.hasNext())
+                        L.add(rs.next());
+                }
+                finally 
+                {
+                    HGUtils.closeNoException(rs);
+                }
+                return L;
+            }
+        });
     }
     
-    public Json getAll(Json pattern)
+    public Json getAll(final Json pattern)
     {
-        Json L = Json.array();
-        HGSearchResult<HGHandle> rs = find(pattern);
-        try
-        {
-            while (rs.hasNext())
-                L.add((Json)get(rs.next()));
-        }
-        finally
-        {
-        	rs.close();
-        }
-        return L;        
+        return graph.getTransactionManager().ensureTransaction(new Callable<Json>() {
+            public Json call()
+            {
+                Json L = Json.array();
+                HGSearchResult<HGHandle> rs = find(pattern);
+                try
+                {
+                    while (rs.hasNext())
+                        L.add((Json)get(rs.next()));
+                }
+                finally
+                {
+                	rs.close();
+                }
+                return L;
+            }
+        });
     }
     
     public HGHandle getHandle(Object atom)
     {
+        if (atom instanceof HGObjectJson && ((HGObjectJson)atom).node() == this 
+                && ((HGObjectJson)atom).getEntityHandle() != null)
+            return ((HGObjectJson)atom).getEntityHandle();
         HGHandle h = atomsTx.get(atom);
         return h == null ? graph.getHandle(atom) : h;
     }
     
+    /**
+     * Return the stored JSON element with the given handle: for an entity, its canonical object (the
+     * same {@link HGObjectJson} as long as it stays in the cache); for a value, an immutable
+     * {@link FrozenObjectJson}, {@link FrozenArrayJson} or primitive.
+     */
     @SuppressWarnings("unchecked")
     public <T> T get(final HGHandle handle)
     {
@@ -382,16 +422,105 @@ public class HyperNodeJson implements HyperNode
                     Object y = ((HGValueLink)x).getValue();
                     if (y instanceof Json)
                     {
-                        Json j = (Json)y;
-                        atomsTx.load(j, graph.getCache().get(handle.getPersistent()));
-                        if (j.isObject() && entityInterface.isEntity(j) && entityInterface.entityHandleProperty() != null)
-                            j.set(entityInterface.entityHandleProperty(), handle.getPersistent().toString());
-                        return (T)j;
+                        if (y instanceof HGObjectJson && ((HGObjectJson)y).isEntityObject())
+                            ((HGObjectJson)y).bindHandle(handle.getPersistent());
+                        atomsTx.load(y, graph.getCache().get(handle.getPersistent()));
+                        return (T)y;
                     }
                 }
                 return (T)x;
             }
         });
+    }
+
+    private static final HGJsonFactory factory = new HGJsonFactory();
+
+    /**
+     * The <code>Json.Factory</code> to use for all JSON stored through a <code>HyperNodeJson</code>
+     * (install it with <code>Json.setGlobalFactory</code> or <code>Json.attachFactory</code>).
+     * New entities passed to {@link #add(Object)} must be objects created by it.
+     */
+    public static HGJsonFactory factory()
+    {
+        return factory;
+    }
+
+    /**
+     * Convert any <code>Json</code> into JSON as created by the {@link #factory()}: objects are
+     * copied into {@link HGObjectJson} objects, arrays are copied, primitives are reused. Objects that
+     * already are <code>HGObjectJson</code> are returned as they are.
+     */
+    public static Json adopt(Json j)
+    {
+        if (j == null || j instanceof HGObjectJson)
+            return j;
+        if (j.isObject())
+        {
+            HGObjectJson o = new HGObjectJson();
+            for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
+                o.set(e.getKey(), adopt(e.getValue()));
+            return o;
+        }
+        if (j.isArray())
+        {
+            Json a = Json.defaultFactory.array();
+            for (Json x : j.asJsonList())
+                a.add(adopt(x));
+            return a;
+        }
+        return j;
+    }
+
+    /**
+     * The frozen form of a JSON element, to become part of an entity's state or of a stored value:
+     * objects and arrays become {@link FrozenObjectJson}/{@link FrozenArrayJson} (frozen subtrees are
+     * reused as they are), primitives are immutable already, and entities become entity references
+     * (added first if they are new). <code>depth</code> is 0 for a property of an entity and larger
+     * inside a value, where entities are only allowed if the entity interface says so.
+     */
+    Json freeze(Json j, int depth)
+    {
+        if (j == null)
+            return Json.nil();
+        if (j instanceof FrozenObjectJson || j instanceof FrozenArrayJson)
+            return j;
+        if (j instanceof AccessPathJson)
+            return ((AccessPathJson)j).resolve();
+        if (j.isObject())
+        {
+            if (entityInterface.isEntity(j))
+            {
+                if (depth > 0 && !entityInterface.allowEntitiesInImmutableValues())
+                    throw new JsonNodeException("Trying to store an entity inside an immutable value.", j);
+                HGHandle h = getHandle(j);
+                if (h == null)
+                    h = handleOf(j);
+                if (h == null)
+                    h = add(j);
+                return entityInterface.createEntityReference(this, h);
+            }
+            Map<String, Json> m = new HashMap<String, Json>();
+            for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
+                m.put(e.getKey(), freeze(e.getValue(), depth + 1));
+            return new FrozenObjectJson(m);
+        }
+        if (j.isArray())
+        {
+            List<Json> L = new ArrayList<Json>();
+            for (Json x : j.asJsonList())
+                L.add(freeze(x, depth + 1));
+            return new FrozenArrayJson(L);
+        }
+        return j;
+    }
+
+    /** The handle recorded in the entity handle property of a JSON object, if any. */
+    private HGHandle handleOf(Json j)
+    {
+        String handleProperty = entityInterface.entityHandleProperty();
+        if (handleProperty != null && j.has(handleProperty) && j.at(handleProperty).isString())
+            return graph.getHandleFactory().makeHandle(j.at(handleProperty).asString());
+        return null;
     }
 
     /**
@@ -448,21 +577,19 @@ public class HyperNodeJson implements HyperNode
             return incache;
     	return graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() { public HGHandle call() {
     		if (!j.isObject() || !entityInterface.isEntity(j))
-    			return addImpl(j, null);    		
+    			return assertTxn(j);
     		// We have to store an entity and we have several possible situations: 
             // 1. the atom is not stored in the db at all => we have to add it
             // 2. the atom is stored already and it's different => we have to replace
             // 3. the atom is stored but it's the same extensionally => we just put in cache    		
-    		HGHandle h = null;
-    		if (entityInterface.entityHandleProperty() != null && j.has(entityInterface.entityHandleProperty()))
-    			h = graph.getHandleFactory().makeHandle(j.at(entityInterface.entityHandleProperty()).asString());
-    		else
+    		HGHandle h = handleOf(j);
+    		if (h == null)
     			h = entityInterface.lookupEntity(HyperNodeJson.this, j);
     		if (h == null)
-    			return addImpl(j, null);
+    			return addEntity(j, null);
     		Json existing = get(h);
     		if (existing == null)
-    			return addImpl(j, h);
+    			return addEntity(j, h);
     		else if (j == existing)
     			return h;
     		else // we won't try to value compare the objects here in case they 
@@ -473,55 +600,52 @@ public class HyperNodeJson implements HyperNode
     }
 
     /**
-     * Add a new element to the database: a pure value is just asserted so we try to avoid
-     * duplicates while an entity is added as a new separate atom.
-     * @param j
-     * @param handle The handle of the entity, if this is an entity, or <code>null</code> auto-generate.
-     * @return The handle of the newly added element.
+     * Add a new entity. The object passed in must be a plain {@link HGObjectJson}, as created by the
+     * {@link #factory()}: it becomes the canonical object of the entity (promoted in place), so the
+     * caller keeps working with it.
+     * @param handle The handle of the entity, or <code>null</code> to auto-generate.
      */
-    private HGHandle addImpl(Json j, HGHandle handle)
+    private HGHandle addEntity(Json j, HGHandle handle)
     {
-    	HGHandle h = j.isObject() && entityInterface.isEntity(j) ? addTxn(j, handle) : assertTxn(j);
-        get(h); // ensure presence in local atomTx
-        return h;
+        if (!(j instanceof HGObjectJson) || ((HGObjectJson)j).isEntityObject())
+            throw new JsonNodeException("A new entity must be a JSON object created by the HyperNodeJson factory " +
+                                        "(see HyperNodeJson.factory()); convert other JSON with HyperNodeJson.adopt() first.", j);
+        HGObjectJson entity = (HGObjectJson)j;
+        Map<String, Json> state = entityState(entity);
+        HGHandle [] targets = propertyTargets(state);
+        HGHandle h = handle;
+        if (h == null)
+            h = graph.add(new HGValueLink(entity, targets), JsonTypeSchema.objectTypeHandle);
+        else
+            graph.define(h, JsonTypeSchema.objectTypeHandle, new HGValueLink(entity, targets), 0);
+        entity.promote(this, h.getPersistent(), state);
+        get(h); // record the canonical object in atomsTx
+        return h.getPersistent();
     }
 
-    /**
-     * When a value is a reference to the entity, return the handle to that entity. 
-     * If an entity with that handle does not exist, create one to ensure we never
-     * have dangling entity references. The auto-created entity will be type-less
-     * and property-less.
-     */
-    private HGHandle maybeEntityRef(Json value)
+    /** The frozen properties of an entity to be stored, without the entity handle property. */
+    private Map<String, Json> entityState(Json j)
     {
-        HGHandle h = entityInterface.entityReferenceToHandle(this, value);
-        if (h != null && get(h) == null)
-        	graph.define(h, JsonTypeSchema.objectTypeHandle, new HGValueLink(Json.object(), new HGHandle[0]), 0);
-    	return h;
+        String handleProperty = entityInterface.entityHandleProperty();
+        Map<String, Json> state = new HashMap<String, Json>();
+        for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
+            if (handleProperty == null || !handleProperty.equals(e.getKey()))
+                state.put(e.getKey(), freeze(e.getValue(), 0));
+        return state;
     }
-    
-    private HGHandle addElement(Json j, HGHandle typeHandle, HGHandle elementHandle)
+
+    /** Assert the values of an entity's properties (deduplicated) and return its JsonProperty links. */
+    private HGHandle [] propertyTargets(Map<String, Json> state)
     {
-        if (elementHandle == null) 
-        		elementHandle = graph.add(j, typeHandle);
-        else
-        		graph.define(elementHandle, typeHandle, j, HGSystemFlags.DEFAULT); 
-    		return elementHandle;
+        HGHandle [] A = new HGHandle[state.size()];
+        int i = 0;
+        for (Map.Entry<String, Json> e : state.entrySet())
+            A[i++] = propertyHandle(e.getKey(), assertTxn(e.getValue()));
+        return A;
     }
-    
-    private HGHandle addValue(Json value)
+
+    private HGHandle propertyHandle(String name, HGHandle valueHandle)
     {
-        HGHandle valueHandle = getHandle(value);
-        if (valueHandle == null)
-        		valueHandle = maybeEntityRef(value);
-        if (valueHandle == null)
-            valueHandle = addImpl(value, null);
-        return valueHandle;
-    }
-    
-    private HGHandle addProperty(String name, Json value)
-    {
-    		HGHandle valueHandle = addValue(value);
         HGHandle propHandle = null;
         HGHandle nameHandle = hg.findOne(graph, hg.eq(name));
         if (nameHandle == null)
@@ -534,61 +658,26 @@ public class HyperNodeJson implements HyperNode
             propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
         return propHandle;
     }
-    
-    private HGHandle addTxn(Json j, HGHandle handle)
+
+    /**
+     * When a value is a reference to the entity, return the handle to that entity. 
+     * If an entity with that handle does not exist, create one to ensure we never
+     * have dangling entity references. The auto-created entity will be type-less
+     * and property-less.
+     */
+    private HGHandle maybeEntityRef(Json value)
     {
-        if (j.isNull())
-        		addElement(j, JsonTypeSchema.nullTypeHandle, handle);
-        else if (j.isBoolean())
-        		addElement(j, JsonTypeSchema.booleanTypeHandle, handle);
-        else if (j.isString())
-            addElement(j, JsonTypeSchema.stringTypeHandle, handle);
-        else if (j.isNumber())
-            addElement(j, JsonTypeSchema.numberTypeHandle, handle);        	
-        else if (j.isArray())
-        {
-            int length = j.asJsonList().size();
-            HGHandle [] A = new HGHandle[length];
-            for (int i = 0; i < length; i++)
-                A[i] = addValue(j.at(i));
-            if (handle == null)
-            		return graph.add(new HGValueLink(j, A), JsonTypeSchema.arrayTypeHandle);
-            else
-            {
-            		graph.define(handle, JsonTypeSchema.arrayTypeHandle, new HGValueLink(j, A), 0);
-            		return handle;
-            }            		
-        }
-        else if (j.isObject())
-        {
-            HGHandle thisHandle = null;
-            if (entityInterface.entityHandleProperty() != null && j.has(entityInterface.entityHandleProperty())) 
-                thisHandle = graph.getHandleFactory().makeHandle(j.atDel(entityInterface.entityHandleProperty()).asString());
-            else if (handle != null)
-            		thisHandle = handle;
-            HGHandle [] A = new HGHandle[j.asJsonMap().size()];                    
-            int i = 0;
-            for (Map.Entry<String, Json> e : j.asJsonMap().entrySet())
-            {
-                A[i++] = addProperty(e.getKey(), e.getValue());
-            }
-            if (thisHandle != null)
-            {
-                graph.define(thisHandle, JsonTypeSchema.objectTypeHandle, new HGValueLink(j, A), 0);
-            }
-            else
-            {
-                thisHandle = graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
-                if (entityInterface.entityHandleProperty() != null)
-                    j.set(entityInterface.entityHandleProperty(), thisHandle.getPersistent().toString());
-            }
-            return thisHandle;
-        }
-        throw new IllegalArgumentException();
+        HGHandle h = entityInterface.entityReferenceToHandle(this, value);
+        if (h != null && get(h) == null)
+        	graph.define(h, JsonTypeSchema.objectTypeHandle, 
+        	             new HGValueLink(HGObjectJson.loaded(this, h.getPersistent(), new HashMap<String, Json>()), new HGHandle[0]), 0);
+    	return h;
     }
 
     private HGHandle assertTxn(Json j)
     {
+        if (j instanceof AccessPathJson)
+            j = ((AccessPathJson)j).resolve();
         HGHandle h = this.maybeEntityRef(j);
         if (h != null)
         	return h;
@@ -634,9 +723,14 @@ public class HyperNodeJson implements HyperNode
                 else
                 	A[i] = assertTxn(ati);
             }
-            h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.arrayTypeHandle),hg.orderedLink(A)));
-            if (h == null)
-                h = graph.add(new HGValueLink(j, A), JsonTypeSchema.arrayTypeHandle);            
+            // An orderedLink condition with no targets matches nothing, so the empty array
+            // is looked up by arity, like the empty object.
+            if (A.length == 0)
+                h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.arrayTypeHandle), hg.arity(0)));
+            else
+                h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.arrayTypeHandle),hg.orderedLink(A)));
+            if (h == null) // store a frozen copy, never the caller's object
+                h = graph.add(new HGValueLink(freeze(j, 1), A), JsonTypeSchema.arrayTypeHandle);            
         }
         else if (j.isObject())
         {
@@ -671,8 +765,8 @@ public class HyperNodeJson implements HyperNode
             h = hg.findOne(graph, hg.and(hg.type(JsonTypeSchema.objectTypeHandle), 
                                          hg.link(A), 
                                          hg.arity(i)));
-            if (h == null)
-                h = graph.add(new HGValueLink(j, A), JsonTypeSchema.objectTypeHandle);
+            if (h == null) // store a frozen copy, never the caller's object
+                h = graph.add(new HGValueLink(freeze(j, 1), A), JsonTypeSchema.objectTypeHandle);
         }
         return h;
     }
@@ -696,13 +790,19 @@ public class HyperNodeJson implements HyperNode
     {
     		if (! (instance instanceof Json))
     			graph.define(handle, type, instance, flags);
-    		graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() { public HGHandle call() {
-    			if (get(handle) != null)
-    				throw new IllegalArgumentException("Cannot define a new atom since handle " + handle +  "is already used.");
-    			addImpl((Json)instance, handle);    			
-    			//graph.define(handle, type, instance, flags);
-    			return handle;
-    		} });
+            else
+    		    graph.getTransactionManager().ensureTransaction(new Callable<HGHandle>() { 
+                public HGHandle call() {
+                    if (get(handle) != null)
+                        throw new IllegalArgumentException("Cannot define a new atom since handle " + 
+                            handle +  "is already used.");
+                    Json j = (Json)instance;
+                    if (j.isObject() && entityInterface.isEntity(j))
+                        addEntity(j, handle);
+                    else
+                        assertTxn(j);
+                    return handle;
+    		    } });
     }
 
     public boolean remove(HGHandle handle)
@@ -710,15 +810,28 @@ public class HyperNodeJson implements HyperNode
         return graph.remove(handle);
     }
 
+    /**
+     * Store the current state of an entity. <code>atom</code> is either the canonical object of the
+     * entity or another JSON object carrying the entity's handle property (a copy, a request body), whose
+     * state is then copied into the canonical object.
+     */
     public boolean update(Object atom)
     {
         HGHandle h = getHandle(atom);
+        if (h == null && atom instanceof Json && ((Json)atom).isObject())
+            h = handleOf((Json)atom);
         if (h == null)
             throw new HGException("Could not find handle for atom " + atom);
         else
             return replace(h, atom, getType(h));
     }
     
+    /**
+     * Replace the state of an entity. Only entities can be replaced: JSON values are immutable and
+     * an attempt to replace one throws a {@link JsonNodeException}, as does replacing an entity with a
+     * non-entity. If <code>newValue</code> is not the canonical object of the entity, its state is
+     * copied into the canonical object, which stays the same Java object.
+     */
     public boolean replace(final HGHandle handle, final Object newValue, final HGHandle newType)
     {
         return graph.getTransactionManager().ensureTransaction(new Callable<Boolean>() {
@@ -733,112 +846,24 @@ public class HyperNodeJson implements HyperNode
         Object currentValue = get(handle);
         if (! (currentValue instanceof Json))
             return graph.replace(handle, newValue, newType);
-        Json j = (Json)currentValue;
-        if (j.isPrimitive() || j.isNull())
+        Json current = (Json)currentValue;
+        if (current.isPrimitive() || current.isNull())
             throw new IllegalArgumentException("Refusing to replace JSON primitive atoms. " +
                                                "Use HyperGraph's own replace method if you know what you're doing.");
-        HGHandle currentType = getType(handle);
-        if (!currentType.equals(newType) ) // this is outside of the scope of what we're doing with JSON
-            return graph.replace(handle, newValue, newType);
-
-        Json h = (Json)newValue;        
-        // Ok, here we are replacing a JSON object with a JSON object or a JSON array with a JSON array.
-        
-        // For arrays, we just make sure we update each of its elements and set the new target set.
-        if (h.isArray())
-        {
-            HGHandle [] targets = new HGHandle[h.asJsonList().size()];
-            for (int i = 0; i < targets.length; i++)
-            {
-                Json el = h.at(i);
-                if (el.isPrimitive() || el.isNull())
-                    targets[i] = this.assertTxn(el);
-                else if (el.isArray())
-                {
-                    // This is a bit tricky because we need to update the elements of 
-                    // nested array when those are objects. But the array nesting depth
-                    // is arbitrary and we don't know how to update nested arrays because
-                    // we don't have their handles. So for now we don't and we assume
-                    // that nesting arrays within arrays is not used in this context.
-                    targets[i] = this.assertTxn(el);
-                }
-                else
-                {
-                    // if the object has a handle already, we recursively update/replace
-                    // otherwise we assert it.
-                    if (entityInterface.isEntity(el))
-                    {
-                    	Json ref = entityInterface.createEntityReference(this, add(el));
-                        targets[i] = entityInterface.entityReferenceToHandle(this, ref);
-                    }
-                    else
-                        targets[i] = this.assertTxn(el);
-                }
-            }
-            // Here we may need to loop through the old target set and maybe do some cleanup...
-            return graph.replace(handle, new HGValueLink(h, targets), JsonTypeSchema.arrayTypeHandle);
-        }
-        
-        // For objects, we sync up old with new, deleting missing properties and setting new ones.
-        
-        // First put all properties of the old object in a map so we know their value handles:
-        Object xx = graph.get(handle);
-        if (! (xx instanceof HGValueLink) ) 
-        {
-        	System.out.println("Atom expected value link : " + xx);
-        	xx = graph.get(handle);
-        }
-        HGValueLink currentAsLink = graph.get(handle);
-        Map<String, HGHandle> valueMap = new HashMap<String, HGHandle>();
-        for (HGHandle propHandle : currentAsLink)
-        {
-            JsonProperty prop = graph.get(propHandle);
-            valueMap.put(graph.get(prop.getName()).toString(), prop.getValue());
-        }
-        
-        HGHandle [] A = new HGHandle[h.asJsonMap().size()];
-        int i = 0;
-        for (Map.Entry<String, Json> e : h.asJsonMap().entrySet())
-        {
-            HGHandle nameHandle = hg.findOne(graph, hg.eq(e.getKey()));
-            if (nameHandle == null)
-                nameHandle = graph.add(e.getKey());
-            HGHandle valueHandle = null;
-            Json el = e.getValue();
-            if (el.isPrimitive() || el.isNull())
-                valueHandle = this.assertTxn(el);            
-            else if (el.isArray())
-            {
-                // here we replace the old array if there's one
-                valueHandle = valueMap.get(e.getKey());
-                if (valueHandle != null)
-                    replace(valueHandle, el, JsonTypeSchema.arrayTypeHandle);
-                else
-                    valueHandle = this.assertTxn(el);
-            }
-            else
-            {
-                if (entityInterface.isEntity(el))
-                {
-                	Json ref = entityInterface.createEntityReference(this, add(el));
-                    valueHandle = entityInterface.entityReferenceToHandle(this, ref);
-                }
-                else if (valueMap.containsKey(e.getKey()))
-                {
-                    valueHandle = valueMap.get(e.getKey());
-                    replace(valueHandle, el, JsonTypeSchema.objectTypeHandle);
-                }
-                else
-                    valueHandle = this.assertTxn(el);
-            }
-            HGHandle propHandle = hg.findOne(graph, hg.and(hg.type(JsonProperty.class), 
-                                                           hg.link(nameHandle,
-                                                                   valueHandle)));
-            if (propHandle == null)
-                propHandle = graph.add(new JsonProperty(nameHandle, valueHandle));
-            A[i++] = propHandle;            
-        }
-        return graph.replace(handle, new HGValueLink(h, A), JsonTypeSchema.objectTypeHandle);
+        if (!(current instanceof HGObjectJson) || !((HGObjectJson)current).isEntityObject())
+            throw new JsonNodeException("Only entities can be replaced or updated; atom " + handle + 
+                                        " is an immutable JSON value.", current);
+        Json replacement = (Json)newValue;
+        if (!replacement.isObject() || !entityInterface.isEntity(replacement))
+            throw new JsonNodeException("The entity " + handle + " can only be replaced by an entity.", replacement);
+        HGObjectJson entity = (HGObjectJson)current;
+        if (replacement != entity)
+            entity.replaceState(entityState(replacement));
+        // Values are asserted (deduplicated), never replaced in place; the link keeps wrapping the
+        // same canonical object.
+        return graph.replace(handle, 
+                             new HGValueLink(entity, propertyTargets(entityState(entity))), 
+                             JsonTypeSchema.objectTypeHandle);
     }
 
     public HGHandle getType(HGHandle handle)
@@ -858,21 +883,34 @@ public class HyperNodeJson implements HyperNode
 
     public <T> HGSearchResult<T> find(HGQueryCondition condition)
     {
+        if (graph.getTransactionManager().getContext().getCurrent() == null)
+            throw new HGException("HyperNodeJson.find requires an active transaction.");
         return graph.find(condition);
     }
 
-    public <T> T getOne(HGQueryCondition condition)
+    public <T> T getOne(final HGQueryCondition condition)
     {
-        return get((HGHandle)findOne(condition));
+        return graph.getTransactionManager().ensureTransaction(new Callable<T>() {
+            public T call()
+            {
+                HGHandle h = findOne(condition);
+                return h == null ? null : (T)get(h);
+            }
+        });
     }
 
     @SuppressWarnings("unchecked")
-    public <T> List<T> getAll(HGQueryCondition condition)
+    public <T> List<T> getAll(final HGQueryCondition condition)
     {
-        List<T> L = new ArrayList<T>();
-        for (HGHandle h : findAll(condition))
-            L.add((T)get(h));
-        return L;
+        return graph.getTransactionManager().ensureTransaction(new Callable<List<T>>() {
+            public List<T> call()
+            {
+                List<T> L = new ArrayList<T>();
+                for (HGHandle h : findAll(condition))
+                    L.add((T)get(h));
+                return L;
+            }
+        });
     }
 
     @SuppressWarnings("unchecked")
